@@ -16,8 +16,8 @@ const __dirname = path.dirname(__filename);
 // --- Veritabanı Yapılandırması ---
 const dbConfig = {
     host: 'localhost',
-    user: 'user',        // MySQL kullanıcı adınız
-    password: 'pasword', // MySQL şifreniz
+    user: 'root',        // MySQL kullanıcı adınız
+    password: 'password', // MySQL şifreniz
     database: 'coal',    // Veritabanı adınız
     waitForConnections: true,
     connectionLimit: 10,
