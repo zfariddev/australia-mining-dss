@@ -16,6 +16,40 @@ Bu sistem, yöneticilerin veriye dayalı stratejik kararlar almasını sağlar:
 * **📈 Üretim Projeksiyonları:** Geçmiş verilere dayanarak gelecek üretim tahminleri.
 * **⚠️ Risk Yönetimi:** İş güvenliği ve çevresel olayların takibi ve raporlanması.
 
+
+🤖 AI Operasyon Asistanı Kullanım Rehberi
+
+Bu proje, yöneticilerin karmaşık menüler arasında kaybolmadan istedikleri veriye anında ulaşabilmesi için Doğal Dil İşleme (NLP) tabanlı akıllı bir navigasyon asistanı içerir.
+1. Nasıl Kullanılır?
+
+Sol panelin en üstündeki "AI Operasyon Asistanı" kutucuğuna ne görmek istediğinizi yazmanız ve Enter tuşuna basmanız (veya mavi ok butonuna tıklamanız) yeterlidir. Asistan, yazdığınız metni analiz eder ve sizi ilgili panele veya harita lokasyonuna otomatik olarak yönlendirir.
+2. Neler Yapabilirsiniz?
+
+Asistan şu anahtar kelimeleri ve komutları anlayabilir (Büyük/küçük harf veya Türkçe karakter duyarlılığı yoktur):
+
+    🌍 Şehir ve Lokasyon Arama:
+
+        Herhangi bir şehir adını yazdığınızda (Örn: "Perth", "Brisbane"), sistem haritayı o şehre odaklar ve şehrin stratejik analiz verilerini yükler.
+
+    📊 Yönetim Panellerine Erişim:
+
+        Riskler: "Riskleri göster", "Tehlike durumları", "Olaylar" yazarak Operasyonel Risk Yönetimi paneline gidebilirsiniz.
+
+        Maliyetler: "Maliyet analizi", "Bütçe", "Finans" komutları Maliyet Analizi panelini açar.
+
+        Lojistik: "Sevkiyatlar", "Gemiler", "Lojistik durumu" yazarak Sevkiyat Takip paneline ulaşabilirsiniz.
+
+        Ekipmanlar: "Kamyonlar nerde", "Ekipman durumu", "Bakım" komutları Ekipman Yönetimi panelini açar.
+
+        Personel: "Çalışan listesi", "Personel" komutları İK panelini yükler.
+
+    📈 İleri Düzey Simülasyonlar:
+
+        Tahminler: "Gelecek tahminleri", "Simülasyonlar" veya "Karar Destek" yazarak tüm tahmin modüllerinin (Monte Carlo, ROI, Bakım) bulunduğu ana merkeze ulaşabilirsiniz.
+
+        Yatırım Analizi: "ROI hesapla", "Yatırım" veya "Geri dönüş" komutları doğrudan Yeni Saha Yatırım Analizörü'nü açar.
+
+
 ## 🛠️ Teknolojiler
 
 * **Frontend:** HTML5, Tailwind CSS, Chart.js (Veri Görselleştirme), Leaflet.js (Harita)
