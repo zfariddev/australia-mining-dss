@@ -1,0 +1,3231 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avustralya Operasyonel KDS</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* --- Ana Stil Ayarları --- */
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; overflow: hidden; }
+        #map-container { position: absolute; top: 0; right: 0; height: 100vh; }
+        .stat-card { background-color: white; border-radius: 0.75rem; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05); border: 1px solid #e2e8f0; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .leaflet-container { background: #dde4ee; }
+        .loader { width: 32px; height: 32px; border: 4px solid #e5e7eb; border-bottom-color: #3b82f6; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Chart.js Konteynerları */
+        .chart-container { position: relative; width: 100%; height: 250px; }
+        .chart-container-pie { position: relative; width: 100%; height: 200px; }
+        /* YENİ: Tahminleme grafikleri için daha büyük alan */
+        .chart-container-large { position: relative; width: 100%; height: 350px; }
+        .nav-button { transition: all 0.2s ease-in-out; }
+        .nav-button.active { background-color: #eef2ff; color: #3730a3; font-weight: 600; }
+        .leaflet-interactive { cursor: pointer; }
+        .custom-map-icon { background: transparent; border: none; }
+        #data-status { position: absolute; bottom: 0; left: 0; width: 100%; background-color: #10b981; color: white; padding: 2px 0; font-size: 0.75rem; text-align: center; opacity: 0; transition: opacity 0.5s ease-in-out; z-index: 10; }
+        .potential-icon-svg { fill: #64748b; opacity: 0.7; filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3)); }
+
+        /* --- Modal CSS --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none; /* Başlangıçta GİZLİ */
+            align-items: center; justify-content: center;
+            z-index: 1001; padding: 20px;
+        }
+        .modal-content {
+            background-color: white; padding: 25px; border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            max-width: 600px; width: 95%;
+            max-height: 90vh; overflow-y: auto; /* Scrollbar for modal content */
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: #cbd5e1 #f8fafc; /* Firefox */
+        }
+        .modal-content::-webkit-scrollbar { width: 6px; } /* Chrome/Safari */
+        .modal-content::-webkit-scrollbar-track { background: #f8fafc; } /* Chrome/Safari */
+        .modal-content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; } /* Chrome/Safari */
+        .modal-content::-webkit-scrollbar-thumb:hover { background: #94a3b8; } /* Chrome/Safari */
+
+        .modal-content label { display: block; margin-bottom: 4px; font-weight: 500; font-size: 0.875rem; color: #4b5563; }
+        /* Form input stili */
+        .form-input {
+            width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 4px;
+            margin-bottom: 12px; font-size: 0.875rem; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .modal-content input, .modal-content select, .modal-content textarea {
+            width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 4px;
+            margin-bottom: 12px; font-size: 0.875rem; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .modal-content input:focus, .modal-content select:focus, .modal-content textarea:focus, .form-input:focus {
+            outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+        .modal-content textarea { min-height: 70px; }
+        .modal-footer { margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 8px; }
+        .modal-button { padding: 8px 16px; border-radius: 4px; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color 0.2s; }
+        .modal-button-cancel { background-color: #e5e7eb; color: #374151; border: 1px solid #d1d5db; }
+        .modal-button-cancel:hover { background-color: #d1d5db; }
+        .modal-button-submit { background-color: #2563eb; color: white; border: none; }
+        .modal-button-submit:hover { background-color: #1d4ed8; }
+        /* YENİ: CSV İndirme Butonu */
+        .download-csv-button {
+            background-color: #10b981; color: white; border: none; padding: 4px 8px;
+            font-size: 0.75rem; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;
+        }
+        .download-csv-button:hover { background-color: #059669; }
+        /* YENİ: Panel İçi Bağlantı */
+        .panel-link { color: #2563eb; cursor: pointer; text-decoration: underline; font-weight: 500; }
+        .panel-link:hover { color: #1d4ed8; }
+
+        /* --- Özel Onay (Confirm) Modalı --- */
+        .confirm-modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none; align-items: center; justify-content: center;
+            z-index: 1002; /* Diğer modalların üstünde */
+        }
+        .confirm-modal-content {
+            background-color: white; padding: 25px; border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            max-width: 400px; width: 90%; text-align: center;
+        }
+        .confirm-modal-button-yes { background-color: #dc2626; color: white; border: none; }
+        .confirm-modal-button-yes:hover { background-color: #b91c1c; }
+
+        /* YENİ: Uyarı Kutusu Stilleri */
+        .alert-box { border-radius: 0.5rem; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.875rem; }
+        .alert-critical { background-color: #fee2e2; border: 1px solid #fecaca; color: #b91c1c; }
+        .alert-warning { background-color: #fffbeb; border: 1px solid #fef3c7; color: #b45309; }
+        .alert-info { background-color: #eff6ff; border: 1px solid #dbeafe; color: #1e40af; }
+        .alert-box ul { list-style: disc; margin-left: 1.25rem; margin-top: 0.5rem; }
+
+        /* YENİ: Tahminleme Paneli Sekmeleri */
+        .forecast-tab {
+            padding: 8px 16px; margin-right: 4px; border-radius: 6px 6px 0 0;
+            background-color: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; border-bottom: none;
+            cursor: pointer; transition: all 0.2s; font-size: 0.875rem; font-weight: 500;
+        }
+        .forecast-tab.active { background-color: white; color: #1d4ed8; border-color: #cbd5e1; border-bottom: 1px solid white; position: relative; top: 1px; }
+        .forecast-tab-content { display: none; background-color: white; border: 1px solid #cbd5e1; border-top: none; padding: 16px; border-radius: 0 0 6px 6px; }
+        .forecast-tab-content.active { display: block; }
+
+        /* YENİ: Akordiyon Stilleri */
+        .accordion-header svg { transition: transform 0.3s ease; }
+        .accordion-header.active svg { transform: rotate(180deg); }
+
+    </style>
+</head>
+<body class="flex">
+
+<aside id="kds-panel" class="w-2/5 max-w-2xl bg-slate-50 h-screen flex flex-col border-r border-gray-200 shadow-lg z-[1000]">
+    <header class="p-4 border-b border-gray-200 bg-white">
+        <h1 class="text-2xl font-extrabold text-gray-800">Avustralya Karar Destek Sistemi</h1>
+        <p class="text-sm text-gray-500">Operasyonel Analiz Platformu</p>
+    </header>
+
+    <div class="p-4 bg-white border-b border-gray-200 shadow-sm">
+        <label for="ai-input" class="block text-sm font-semibold text-gray-700 mb-2">🤖 AI Operasyon Asistanı</label>
+        <div class="relative">
+            <input type="text" id="ai-input" 
+                class="w-full p-3 pr-12 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm transition-all" 
+                placeholder="Örn: 'Riskleri göster' veya 'Perth analizi'..." autocomplete="off">
+            
+            <button id="ai-submit-btn" class="absolute right-2 top-2 p-1.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                    <path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z" />
+                </svg>
+            </button>
+        </div>
+        <p class="text-xs text-gray-400 mt-2 ml-1">İpucu: Panel adı (Risk, Maliyet, Tahmin) veya Şehir adı yazın.</p>
+    </div>
+
+    <div id="panel-content" class="flex-grow overflow-y-auto custom-scrollbar p-4 relative">
+         <div id="initial-loader" class="flex justify-center items-center h-full">
+             <div class="loader"></div><p class="ml-4 text-gray-600">Veriler yükleniyor...</p>
+         </div>
+         <div id="data-status">Veriler güncellendi!</div>
+    </div>
+</aside>
+
+<main id="map-container" class="w-3/5">
+    <div id="map" class="h-full w-full"></div>
+</main>
+
+<!-- Risk Ekleme Modalı -->
+<div id="riskModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 class="text-xl font-semibold mb-5">Yeni Operasyonel Risk Ekle</h3>
+        <form id="addRiskForm">
+            <div class="grid grid-cols-2 gap-4">
+                  <div><label for="riskSiteId">Maden Sahası:</label><select id="riskSiteId" name="site_id" required class="form-input"><option value=''>Yükleniyor...</option></select></div>
+                  <div><label for="riskSeverity">Şiddet:</label><select id="riskSeverity" name="severity" required class="form-input"><option value="">Seçiniz...</option><option value="Düşük">Düşük</option><option value="Orta">Orta</option><option value="Yüksek">Yüksek</option><option value="Kritik">Kritik</option></select></div>
+            </div>
+            <div><label for="riskCategory">Kategori:</label><input type="text" id="riskCategory" name="category" required placeholder="Örn: Ekipman, Çevresel, Lojistik" class="form-input"></div>
+            <div><label for="riskDescription">Risk Açıklaması:</label><textarea id="riskDescription" name="risk_description" required class="form-input"></textarea></div>
+            <div><label for="riskMitigation">Önleyici Plan:</label><textarea id="riskMitigation" name="mitigation_plan" class="form-input"></textarea></div>
+            <div><label for="riskReportedBy">Raporlayan:</label><select id="riskReportedBy" name="reported_by" required class="form-input"><option value=''>Yükleniyor...</option></select></div>
+            <div class="modal-footer">
+                <button type="button" onclick="hideRiskModal()" class="modal-button modal-button-cancel">İptal</button>
+                <button type="submit" class="modal-button modal-button-submit">Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Ekipman Ekleme/Düzenleme Modalı -->
+<div id="equipmentModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 id="equipmentModalTitle" class="text-xl font-semibold mb-5">Yeni Ekipman Ekle</h3>
+        <form id="equipmentForm">
+            <input type="hidden" id="equipmentId" name="id">
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div><label for="eqSiteId">Maden Sahası:</label><select id="eqSiteId" name="site_id" required class="form-input"><option value=''>Yükleniyor...</option></select></div>
+                <div><label for="eqCode">Ekipman Kodu:</label><input type="text" id="eqCode" name="equipment_code" required class="form-input"></div>
+                <div><label for="eqName">Ekipman Adı:</label><input type="text" id="eqName" name="equipment_name" required class="form-input"></div>
+                <div><label for="eqType">Tip:</label><input type="text" id="eqType" name="type" required placeholder="Örn: Truck, Excavator" class="form-input"></div>
+                <div><label for="eqManufacturer">Üretici:</label><input type="text" id="eqManufacturer" name="manufacturer" class="form-input"></div>
+                <div><label for="eqModel">Model:</label><input type="text" id="eqModel" name="model" class="form-input"></div>
+                <div><label for="eqPurchaseDate">Alım Tarihi:</label><input type="date" id="eqPurchaseDate" name="purchase_date" class="form-input"></div>
+                <div><label for="eqPurchaseValue">Alım Değeri ($):</label><input type="number" step="0.01" id="eqPurchaseValue" name="purchase_value" class="form-input"></div>
+                <div><label for="eqServiceInterval">Servis Aralığı (Gün):</label><input type="number" id="eqServiceInterval" name="service_interval_days" class="form-input"></div>
+                <div><label for="eqLastServiceDate">Son Servis:</label><input type="date" id="eqLastServiceDate" name="last_service_date" class="form-input"></div>
+                <div><label for="eqNextServiceDate">Sonraki Servis:</label><input type="date" id="eqNextServiceDate" name="next_service_date" class="form-input"></div>
+                <div><label for="eqStatus">Durum:</label><select id="eqStatus" name="status" required class="form-input"><option value="">Seçiniz...</option><option value="Çalışıyor">Çalışıyor</option><option value="Bakımda">Bakımda</option><option value="Arızalı">Arızalı</option></select></div>
+            </div>
+            <div class="mt-2"><label for="eqLocation">Lokasyon Detayı:</label><textarea id="eqLocation" name="location_detail" rows="2" class="form-input"></textarea></div>
+            <div class="modal-footer">
+                <button type="button" onclick="hideEquipmentModal()" class="modal-button modal-button-cancel">İptal</button>
+                <button type="submit" class="modal-button modal-button-submit">Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Sevkiyat Ekleme/Düzenleme Modalı -->
+<div id="shipmentModal" class="modal-overlay">
+     <div class="modal-content">
+         <h3 id="shipmentModalTitle" class="text-xl font-semibold mb-5">Yeni Sevkiyat Ekle</h3>
+         <form id="shipmentForm">
+             <input type="hidden" id="shipmentId" name="id">
+             <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                   <div><label for="shipmentSiteId">Saha:</label> <select id="shipmentSiteId" name="site_id" required class="form-input"><option value=''>Yükleniyor...</option></select></div>
+                   <div><label for="shipmentOriginPort">Kalkış Limanı:</label> <select id="shipmentOriginPort" name="origin_port_id" required class="form-input"><option value=''>Yükleniyor...</option></select></div>
+                   <div><label for="shipmentDestPort">Varış Limanı:</label> <select id="shipmentDestPort" name="destination_port_id" required class="form-input"><option value=''>Yükleniyor...</option></select></div>
+                   <div><label for="shipmentCarrier">Taşıyıcı:</label> <select id="shipmentCarrier" name="carrier_id" required class="form-input"><option value=''>Yükleniyor...</option></select></div>
+                   <div><label for="shipmentDate">Sevkiyat Tarihi:</label> <input type="date" id="shipmentDate" name="shipment_date" required class="form-input"></div>
+                   <div><label for="shipmentQuantity">Miktar:</label> <input type="number" step="any" id="shipmentQuantity" name="quantity" required class="form-input"></div>
+                   <div><label for="shipmentUnit">Birim:</label> <select id="shipmentUnit" name="unit_id" required class="form-input"><option value=''>Yükleniyor...</option></select></div>
+                   <div><label for="shipmentStatus">Durum:</label>
+                    <select id="shipmentStatus" name="status" required class="form-input">
+                          <option value="">Seçiniz...</option><option value="Yüklendi">Yüklendi</option><option value="Yolda">Yolda</option><option value="Teslim Edildi">Teslim Edildi</option><option value="Gecikti">Gecikti</option>
+                    </select>
+                   </div>
+                   <div><label for="shipmentCost">Maliyet ($):</label> <input type="number" step="0.01" id="shipmentCost" name="cost" class="form-input"></div>
+                   <div><label for="shipmentEtd">Tahmini Kalkış (ETD):</label> <input type="date" id="shipmentEtd" name="etd" class="form-input"></div>
+                   <div><label for="shipmentEta">Tahmini Varış (ETA):</label> <input type="date" id="shipmentEta" name="eta" class="form-input"></div>
+                   <div><label for="shipmentContainer">Konteyner No:</label> <input type="text" id="shipmentContainer" name="container_number" class="form-input"></div>
+             </div>
+              <div class="mt-2"><label for="shipmentInvoice">Fatura No:</label> <input type="text" id="shipmentInvoice" name="invoice_id" class="form-input"></div>
+             <div class="modal-footer">
+                 <button type="button" onclick="hideShipmentModal()" class="modal-button modal-button-cancel">İptal</button>
+                 <button type="submit" class="modal-button modal-button-submit">Kaydet</button>
+             </div>
+         </form>
+     </div>
+</div>
+
+<!-- YENİ: Özel Onay (Silme) Modalı -->
+<div id="customConfirmModal" class="confirm-modal-overlay">
+    <div class="confirm-modal-content">
+        <h3 class="text-lg font-semibold mb-4">Onay Gerekli</h3>
+        <p id="confirmModalMessage" class="text-gray-600 mb-6">Bu işlemi yapmak istediğinizden emin misiniz?</p>
+        <div class="modal-footer justify-center">
+            <button id="confirm-no" class="modal-button modal-button-cancel">İptal</button>
+            <button id="confirm-yes" class="modal-button confirm-modal-button-yes">Evet, Sil</button>
+        </div>
+    </div>
+</div>
+
+
+<script>
+// API sunucunun adresi
+const API_BASE_URL = 'http://localhost:3000';
+
+// Global değişkenler
+let AppData = {};
+let MarketData = {};
+let activePanel = 'overview';
+let dataRefreshInterval;
+let mapInstance;
+let chartInstances = {};
+let confirmModalCallback = null; // Onay modalı için callback fonksiyonu
+
+// HATA DÜZELTME: Tanımsız değişken için değer atama
+const zenginlestirilmisVeriTarihi = '25 Ekim 2025'; // SQL dosyasının oluşturulduğu tarihi temsil eder
+
+function normalizeText(text) {
+    if (!text) return "";
+    return text
+        .toLocaleLowerCase('tr-TR') // Önce Türkçe küçük harfe çevir
+        .replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u')
+        .replace(/ş/g, 's')
+        .replace(/ı/g, 'i')
+        .replace(/İ/g, 'i')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c')
+        .trim(); // Baştaki sondaki boşlukları at
+}
+
+// Mevcut tüm grafikleri silen yardımcı fonksiyon.
+function destroyAllCharts() {
+    Object.values(chartInstances).forEach(chart => {
+        try { chart.destroy(); } catch(e){ console.warn("Chart destroy error:", e); }
+    });
+    chartInstances = {};
+}
+
+// Mineral ID'sine göre harita için Leaflet ikonu oluşturan fonksiyonlar.
+function createMineralIcon(mineralId) { return L.divIcon({ html: createMineralIconSVG(mineralId), className: 'custom-map-icon', iconSize: [32, 32], iconAnchor: [16, 32] }); }
+function createRegularCityIcon() { const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="10" height="10"><circle cx="5" cy="5" r="5" fill="#64748b" opacity="0.5" /></svg>`; return L.divIcon({ html: svgIcon, className: 'custom-map-icon', iconSize: [10, 10], iconAnchor: [5, 5] }); }
+function createPotentialIcon() { const svgIcon = `<svg class="potential-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`; return L.divIcon({ html: svgIcon, className: 'custom-map-icon', iconSize: [28, 28], iconAnchor: [14, 28] }); }
+function createMineralIconSVG(mineralId) { const mineralColors = { 1: '#713f12', 2: '#facc15', 3: '#1e293b', 4: '#4ade80', 'default': '#64748b' }; const color = mineralColors[mineralId] || mineralColors['default']; return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color}" width="32" height="32"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`; }
+
+// Veri yenileme durumunu gösteren küçük banner
+function showDataStatusUpdate(message = 'Veriler güncellendi!', isError = false) {
+    const statusBanner = document.getElementById('data-status');
+    if (statusBanner) {
+        statusBanner.textContent = message;
+        statusBanner.style.backgroundColor = isError ? '#ef4444' : '#10b981'; // Kırmızı veya Yeşil
+        statusBanner.style.opacity = '1';
+        setTimeout(() => {
+            statusBanner.style.opacity = '0';
+        }, 3000); // 3 saniye göster
+    }
+}
+
+// --- YENİ: AI Komut İşleyicisi ---
+
+// --- GÜNCELLENMİŞ: Akıllı AI Komut İşleyicisi ---
+function handleAICommand() {
+    const inputEl = document.getElementById('ai-input');
+    const rawText = inputEl.value;
+    
+    if (!rawText) return;
+
+    // 1. Girdiyi normalize et (örn: "Çalışan" -> "calisan")
+    const command = normalizeText(rawText);
+    
+    console.log(`AI Komutu Algılandı (Ham: "${rawText}" -> Normalize: "${command}")`);
+    
+    // 2. Önce Şehir Kontrolü Yap (Veri içinden arama)
+    if (AppData && AppData.cities) {
+        // Şehir isimlerini de normalize ederek karşılaştır
+        const matchedCity = AppData.cities.find(c => {
+            const cityNameNormalized = normalizeText(c.name);
+            // "perth" yazınca "perth" şehrini bulsun
+            // Veya "kalgoorlie" için "kalgor" yazsa bile (indexOf kontrolüyle) bulmaya çalışsın
+            return cityNameNormalized.includes(command) || command.includes(cityNameNormalized);
+        });
+        
+        if (matchedCity) {
+            console.log(`AI: Şehir eşleşti -> ${matchedCity.name}`);
+            activePanel = `city-${matchedCity.id}`;
+            loadCityAnalysisPanel(matchedCity.id);
+            
+            if (mapInstance && matchedCity.latitude && matchedCity.longitude) {
+                mapInstance.setView([matchedCity.latitude, matchedCity.longitude], 10, { animate: true });
+            }
+            
+            inputEl.value = '';
+            return;
+        }
+    }
+
+    // 3. Gelişmiş Panel Anahtar Kelime Kontrolü (Hata Toleranslı)
+    // Anahtar kelimeler de normalize edilmiş (Türkçe karaktersiz) olmalı!
+    // ... önceki kodlar ...
+    const commands = [
+        { keys: ['risk', 'tehlike', 'olay', 'sorun'], action: 'risks', loader: loadRisksPanel },
+        { keys: ['maliyet', 'para', 'butce', 'finans'], action: 'cost', loader: loadCostPanel },
+        { keys: ['maden', 'rezerv', 'kaynak'], action: 'minerals', loader: loadMineralsPanel },
+        { keys: ['ekipman', 'kamyon', 'dozer', 'bakim'], action: 'equipment', loader: loadEquipmentPanel }, // Not: Bakım buraya da gelebilir ama aşağıda özelleştirdik
+        { keys: ['sevkiyat', 'lojistik', 'gemi'], action: 'shipments', loader: loadShipmentsPanel },
+        { keys: ['calisan', 'personel', 'insan'], action: 'employees', loader: loadEmployeesPanel },
+        { keys: ['sirket', 'firma', 'hakkinda'], action: 'company', loader: loadCompanyPanel },
+        { keys: ['isg', 'guvenlik', 'cevre'], action: 'hse', loader: loadHSEPanel },
+        { keys: ['verim', 'performans', 'kpi'], action: 'efficiency', loader: loadEfficiencyPanel },
+        { keys: ['genel', 'ozet', 'ana'], action: 'overview', loader: loadOverviewDashboard },
+
+        // --- YENİ: AYRIŞTIRILMIŞ TAHMİN MODÜLLERİ ---
+        
+        // 1. Üretim Projeksiyonu
+        { keys: ['tahminler', 'analizler', 'simulasyonlar', 'karar destek', 'hepsi'], action: 'forecast-main', loader: loadForecastPanel },
+        
+        // Tekil modüller aynen kalıyor (Specific Access)
+        { keys: ['projeksiyon', 'uretim tahmini'], action: 'forecast-prod', loader: loadProductionForecastPanel },
+        { keys: ['bakim tahmini', 'ariza riski'], action: 'forecast-maint', loader: loadMaintenanceForecastPanel },
+        { keys: ['monte carlo', 'maliyet simulasyonu'], action: 'forecast-cost', loader: loadCostSimulationPanel },
+        { keys: ['stres testi', 'risk etkisi'], action: 'forecast-risk', loader: loadRiskImpactPanel },
+        { keys: ['roi', 'yatirim', 'geri donus'], action: 'forecast-roi', loader: loadROIPanel }
+    ];
+    // ... sonraki kodlar ...
+
+    // Eşleşme Mantığı: Girilen komut, anahtar kelimelerden birini içeriyor mu?
+    const matchedCommand = commands.find(cmd => cmd.keys.some(k => command.includes(k)));
+
+    if (matchedCommand) {
+        console.log(`AI: Komut eşleşti -> ${matchedCommand.action}`);
+        activePanel = matchedCommand.action;
+        matchedCommand.loader();
+        inputEl.value = '';
+    } else {
+        // Hata durumunda kullanıcıya nazik bir geri bildirim (Alert yerine kutu kenarını kızartalım)
+        inputEl.classList.add('border-red-500', 'ring-2', 'ring-red-200');
+        inputEl.placeholder = "Anlaşılamadı. 'Maliyet', 'Risk', 'Perth' deneyin...";
+        inputEl.value = '';
+        setTimeout(() => {
+            inputEl.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+        }, 2000);
+    }
+}
+    
+
+// Aktif paneli yeniden yükleyen fonksiyon
+function refreshActivePanel() {
+    console.log(`refreshActivePanel: Aktif panel '${activePanel}' yenileniyor...`); // LOG
+    const loader = document.getElementById('initial-loader');
+    if (loader) loader.style.display = 'none';
+
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) { console.error("Panel content element not found!"); return; }
+    panelContent.innerHTML = ''; // Paneli temizle
+
+    const panelLoaders = {
+        'overview': loadOverviewDashboard,
+        'risks': loadRisksPanel,
+        'minerals': loadMineralsPanel,
+        'efficiency': loadEfficiencyPanel,
+        'equipment': loadEquipmentPanel,
+        'hse': loadHSEPanel,
+        'cost': loadCostPanel,
+        'shipments': loadShipmentsPanel,
+        'employees': loadEmployeesPanel,
+        'company': loadCompanyPanel,
+        'forecast-main': loadForecastPanel, // Akordiyonlu Ana Panel
+
+        // Tekil modüller
+        'forecast-prod': loadProductionForecastPanel,
+        'forecast-maint': loadMaintenanceForecastPanel,
+        'forecast-cost': loadCostSimulationPanel,
+        'forecast-risk': loadRiskImpactPanel,
+        'forecast-roi': loadROIPanel
+    };
+    if (panelLoaders[activePanel]) {
+        try {
+            panelLoaders[activePanel]();
+        } catch (e) {
+            console.error(`Panel yükleme hatası (${activePanel}):`, e);
+            panelContent.innerHTML = `<p class="text-red-600 font-semibold">Panel yüklenirken bir hata oluştu: ${e.message}</p>`;
+            showDataStatusUpdate(`Panel yükleme hatası: ${e.message}`, true);
+        }
+    } else {
+        // Eğer panel yükleyici bulunamazsa (örn. loadCityAnalysisPanel gibi özel durumlar),
+        // paneli boş bırakırız, çünkü bu fonksiyonlar manuel olarak çağrılır.
+        console.warn(`refreshActivePanel: Bilinen bir panel butonu değil: ${activePanel}. Muhtemelen harita tıklamasıyla yüklenen özel bir panel.`);
+        // panelContent.innerHTML = `<p class="text-yellow-600">Bilinmeyen panel: ${activePanel}</p>`;
+    }
+}
+
+
+// Tüm veriyi çeken ve zamanlayıcıyı başlatan ana fonksiyon
+async function fetchAllData() {
+    console.log('fetchAllData: Veritabanı verileri yenileniyor...'); // LOG 1
+    const loader = document.getElementById('initial-loader');
+    if (loader && Object.keys(AppData).length === 0) loader.style.display = 'flex';
+
+    try {
+        console.log(`fetchAllData: Fetch isteği gönderiliyor: ${API_BASE_URL}/api/full-data`); // LOG 2
+        const res = await fetch(`${API_BASE_URL}/api/full-data`);
+        console.log(`fetchAllData: Fetch yanıtı alındı. Status: ${res.status}`); // LOG 3
+
+        if (!res.ok) {
+            let errorText = `HTTP Hata Kodu: ${res.status}`;
+            try { const errorJson = await res.json(); errorText = errorJson.message || errorText; } catch (jsonError) { try { errorText = await res.text(); } catch(textError){} }
+            console.error('fetchAllData: API isteği başarısız oldu.', errorText); // LOG 4 (Hata)
+            throw new Error(errorText);
+        }
+
+        console.log('fetchAllData: Yanıt JSON olarak parse ediliyor...'); // LOG 5
+        const newData = await res.json();
+        console.log('fetchAllData: JSON parse edildi.'); // LOG 6
+
+        // server.js 'result[0]' döndüğü için newData.miningSites bir dizi olmalı
+        if (!newData || typeof newData !== 'object' || !Array.isArray(newData.miningSites)) {
+            console.error('fetchAllData: API verisi bozuk veya eksik.', newData); // LOG 7 (Hata)
+            throw new Error("API'den gelen veri formatı bozuk veya eksik.");
+        }
+        console.log('fetchAllData: Veritabanı verileri başarıyla alındı ve doğrulandı.'); // LOG 8 (Başarı)
+
+        const isFirstLoad = Object.keys(AppData).length === 0; // İlk yükleme mi?
+        AppData = newData; // Global veriyi güncelle
+
+        // Haritayı sadece ilk yüklemede veya gerekli olduğunda güncelle
+        if (isFirstLoad) {
+             initializeMapFeatures(mapInstance);
+        }
+        refreshActivePanel(); // Paneli her zaman yenile
+
+
+    } catch (e) {
+        console.error('!!! fetchAllData HATA:', e); // LOG 9 (Nihai Hata)
+        const userMessage = (e.message.includes("Failed to fetch") || e.message.includes("NetworkError"))
+            ? `Sunucuya bağlanılamadı (${API_BASE_URL}). Sunucunun çalıştığından emin olun.`
+            : `Veritabanı verileri alınamadı: ${e.message}`;
+        showDataStatusUpdate(userMessage, true);
+
+        if (loader) {
+            loader.innerHTML = `<p class="ml-4 text-red-600 font-semibold">${userMessage}</p>`;
+            loader.style.display = 'flex';
+        }
+    }
+}
+
+// Piyasa verilerini çeker
+async function fetchMarketData() {
+    console.log('fetchMarketData: Piyasa verileri çekiliyor...');
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/market-data`);
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.message || `Piyasa API isteği başarısız: ${res.status}`);
+        }
+        MarketData = await res.json();
+        console.log('fetchMarketData: Piyasa verileri alındı.');
+        if (activePanel === 'overview') {
+            refreshActivePanel(); // Sadece overview panelini yenile
+        }
+    } catch (e) {
+        console.error('!!! fetchMarketData HATA:', e);
+        const userMessage = (e.message.includes("Failed to fetch") || e.message.includes("NetworkError"))
+            ? `Piyasa sunucusuna bağlanılamadı.`
+            : e.message;
+        showDataStatusUpdate(`Piyasa verileri alınamadı: ${userMessage}`, true);
+        MarketData = { rates: null, commodities: null, error: userMessage };
+        if (activePanel === 'overview') refreshActivePanel();
+    }
+}
+
+// Sayfa yüklendiğinde çalışacak ana fonksiyon
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOMContentLoaded: Sayfa yükleniyor...'); // LOG
+    const panelContent = document.getElementById('panel-content');
+
+    try {
+        mapInstance = L.map('map').setView([-25.27, 133.77], 5);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        }).addTo(mapInstance);
+        mapInstance.setMaxBounds(L.latLngBounds(L.latLng(-44, 112), L.latLng(-10, 154)));
+        mapInstance.setMinZoom(5);
+        console.log('DOMContentLoaded: Harita başlatıldı.'); // LOG
+
+        initializeNavigation();
+        console.log('DOMContentLoaded: Navigasyon başlatıldı.'); // LOG
+
+        // Verileri çek ve ilk paneli yükle
+        console.log('DOMContentLoaded: İlk veri çekme işlemleri başlıyor...'); // LOG
+        await Promise.all([
+            fetchAllData(),
+            fetchMarketData()
+        ]);
+        console.log('DOMContentLoaded: İlk veri çekme işlemleri tamamlandı.'); // LOG
+
+        // Zamanlayıcıları ayarla
+        dataRefreshInterval = setInterval(fetchAllData, 60000); // 1 dk
+        setInterval(fetchMarketData, 3600000); // 1 saat
+        console.log('DOMContentLoaded: Zamanlayıcılar ayarlandı.'); // LOG
+
+        // Form olay dinleyicileri
+        document.getElementById('addRiskForm').addEventListener('submit', submitNewRisk);
+        document.getElementById('equipmentForm').addEventListener('submit', submitEquipmentForm);
+        document.getElementById('shipmentForm').addEventListener('submit', submitShipmentForm);
+        console.log('DOMContentLoaded: Form dinleyicileri eklendi.'); // LOG
+
+        // YENİ: Özel Onay Modalı dinleyicileri
+        document.getElementById('confirm-yes').addEventListener('click', handleConfirmYes);
+        document.getElementById('confirm-no').addEventListener('click', handleConfirmNo);
+        console.log('DOMContentLoaded: Onay modalı dinleyicileri eklendi.'); // LOG
+
+    } catch (error) {
+        console.error("DOMContentLoaded sırasında kritik hata:", error);
+        document.body.innerHTML = `<div style="padding: 20px; text-align: center; color: red;"><h1>Kritik Hata</h1><p>Uygulama başlatılırken bir sorun oluştu. Lütfen konsolu kontrol edin.</p><pre>${error.message}\n${error.stack}</pre></div>`;
+    }
+});
+
+// YARDIMCI Fonksiyonlar (find...Name)
+function findEquipmentName(id) { return (AppData.equipment?.find(e => e.id == id)?.equipment_name || `Ekipman ID: ${id}`); }
+function findSiteName(id) { return (AppData.miningSites?.find(s => s.id == id)?.name || `Saha ID: ${id}`); }
+function findMineralName(id) { return (AppData.minerals?.find(m => m.id == id)?.name || `Mineral ID: ${id}`); }
+function findUnitName(id) { return (AppData.units?.find(u => u.id == id)?.abbreviation || `Birim ID: ${id}`); }
+function findPortName(id) { return (AppData.ports?.find(p => p.id == id)?.name || `Liman ID: ${id}`); }
+function findCityName(id) { return (AppData.cities?.find(c => c.id == id)?.name || `Şehir ID: ${id}`); }
+function findEmployeeName(id) {
+    const emp = AppData.employees?.find(e => e.id == id);
+    if (!emp) return `Çalışan ID: ${id}`;
+    return `${emp.first_name || ''} ${emp.last_name || ''}`;
+}
+
+// HATA DÜZELTME: Eksik olan 'fetchMockMiningSites' fonksiyonu eklendi.
+/**
+ * Temsili Maden Sahası verisi döndürür. Normalde API'den gelir (`/api/sites`)
+ * (coal.sql'deki `mining_sites` tablosuna göre)
+ */
+function fetchMockMiningSites() {
+    console.log("Temsili maden sahası verisi getiriliyor...");
+    // coal.sql'e dayalı temsili veri. Gerçek bir API'de bu SQL'den çekilirdi.
+    return [
+        { id: 1, name: 'Mount Whaleback', permitted_capacity_tons_per_day: 150000 },
+        { id: 2, name: 'Super Pit', permitted_capacity_tons_per_day: 50000 },
+        { id: 3, name: 'Weipa Bauxite Mine', permitted_capacity_tons_per_day: 75000 }
+    ];
+}
+
+// Harita Başlatma
+function initializeMapFeatures(map) {
+    if (!map || !AppData.cities) { console.warn("initializeMapFeatures: Harita veya şehir verisi hazır değil."); return; }
+    map.eachLayer(layer => { if (layer instanceof L.Marker && layer !== map.dummyMarker) { map.removeLayer(layer); } });
+    const cities = AppData.cities || [];
+    const miningSites = AppData.miningSites || [];
+    const potentialReserves = AppData.potentialReserves || [];
+    console.log(`initializeMapFeatures: Haritaya ${cities.length} şehir işleniyor...`);
+    const activeSiteCityIds = new Set(miningSites.map(s => s.city_id));
+    const potentialReserveCityIds = new Set(potentialReserves.map(p => p.city_id));
+    let addedMarkers = 0;
+    cities.forEach(city => {
+        const lat = city.latitude; const lng = city.longitude;
+        if (lat == null || lng == null) { console.warn(`Koordinatı eksik: ${city.name}`); return; }
+        let icon, tooltipText = `<strong>${city.name}</strong>`, panelFunction = loadCityAnalysisPanel, panelArg = city.id;
+        const activeSite = miningSites.find(s => s.city_id == city.id);
+        const hasPotential = potentialReserveCityIds.has(city.id);
+        if (activeSite) {
+            icon = createMineralIcon(activeSite.primary_mineral_id); tooltipText += `<br>Aktif Saha: ${activeSite.name}`;
+            panelFunction = loadSiteDetailsPanel; panelArg = activeSite.id;
+        } else if (hasPotential) {
+            icon = createPotentialIcon(); tooltipText += `<br><span style="color: #3b82f6;">Potansiyel (Analiz için tıkla)</span>`;
+        } else {
+            icon = createRegularCityIcon(); tooltipText += `<br><span style="color: #64748b;">(Analiz için tıkla)</span>`;
+        }
+        try {
+            const marker = L.marker([lat, lng], { icon: icon, riseOnHover: true }).addTo(map);
+            marker.bindTooltip(tooltipText);
+            // Harita marker'ına tıklandığında ilgili paneli yükle
+            marker.on('click', () => {
+                setActiveButton(null); // Özel panellerde aktif buton olmamalı
+                activePanel = `city-${panelArg}`; // Paneli benzersiz kılmak için
+                panelFunction(panelArg);
+            });
+            addedMarkers++;
+        } catch (markerError) { console.error(`Marker hatası (${city.name}):`, markerError); }
+    });
+     console.log(`initializeMapFeatures: ${addedMarkers} marker eklendi.`);
+     if (!map.dummyMarker && cities.length > 0) { map.dummyMarker = L.marker([0,0], {opacity: 0}).addTo(map); }
+     else if (map.dummyMarker && cities.length === 0) { map.removeLayer(map.dummyMarker); delete map.dummyMarker; }
+}
+
+// Aktif Buton Ayarlama
+function setActiveButton(activeButton) { document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active')); if(activeButton) activeButton.classList.add('active'); }
+
+// Navigasyon Başlatma
+function initializeNavigation() {
+    const aiInput = document.getElementById('ai-input');
+    const aiBtn = document.getElementById('ai-submit-btn');
+
+    // Butona tıklanınca çalıştır
+    if (aiBtn) {
+        aiBtn.addEventListener('click', handleAICommand);
+    }
+
+    // Input alanında "Enter" tuşuna basılınca çalıştır
+    if (aiInput) {
+        aiInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleAICommand();
+            }
+        });
+    }
+    
+    console.log("AI Navigasyon sistemi başlatıldı.");
+}
+
+// --- MODAL FONKSİYONLARI ---
+function populateSelect(selectElementId, dataArray, valueField, textField, defaultOptionText = "Seçiniz...") {
+    const select = document.getElementById(selectElementId);
+    if (!select) { console.error(`Select elemanı bulunamadı: ${selectElementId}`); return; }
+    select.innerHTML = `<option value="">${defaultOptionText}</option>`;
+    if (!Array.isArray(dataArray)) { console.warn(`populateSelect: Geçersiz veri dizisi (${selectElementId})`); return; }
+    // Veriyi metin alanına göre sırala
+    const sortedData = [...dataArray].sort((a, b) => (a[textField] || '').localeCompare(b[textField] || ''));
+    sortedData.forEach(item => {
+        select.innerHTML += `<option value="${item[valueField]}">${item[textField]}</option>`;
+    });
+}
+function showRiskModal() {
+    populateSelect('riskSiteId', AppData.miningSites, 'id', 'name', 'Saha Seçiniz...');
+
+    // Çalışanları formatla (Ad Soyad (Rol))
+    const employeesWithName = (AppData.employees || []).map(e => ({
+        ...e,
+        full_name_role: `${e.first_name || ''} ${e.last_name || ''} (${e.role_name || 'Rol Yok'})`
+    }));
+    populateSelect('riskReportedBy', employeesWithName, 'id', 'full_name_role', 'Raporlayan Seçiniz...');
+
+    document.getElementById('addRiskForm').reset();
+    document.getElementById('riskModal').style.display = 'flex';
+}
+function hideRiskModal() { document.getElementById('riskModal').style.display = 'none'; }
+
+function showEquipmentModal(equipment = null) {
+    populateSelect('eqSiteId', AppData.miningSites, 'id', 'name', 'Saha Seçiniz...');
+    const form = document.getElementById('equipmentForm');
+    form.reset();
+
+    if (equipment) {
+        // Düzenleme Modu
+        document.getElementById('equipmentModalTitle').textContent = 'Ekipmanı Düzenle';
+        document.getElementById('equipmentId').value = equipment.id;
+        document.getElementById('eqSiteId').value = equipment.site_id;
+        document.getElementById('eqCode').value = equipment.equipment_code;
+        document.getElementById('eqName').value = equipment.equipment_name;
+        document.getElementById('eqType').value = equipment.type;
+        document.getElementById('eqManufacturer').value = equipment.manufacturer || '';
+        document.getElementById('eqModel').value = equipment.model || '';
+        document.getElementById('eqPurchaseDate').value = equipment.purchase_date ? new Date(equipment.purchase_date).toISOString().split('T')[0] : '';
+        document.getElementById('eqPurchaseValue').value = equipment.purchase_value || '';
+        document.getElementById('eqServiceInterval').value = equipment.service_interval_days || '';
+        document.getElementById('eqLastServiceDate').value = equipment.last_service_date ? new Date(equipment.last_service_date).toISOString().split('T')[0] : '';
+        document.getElementById('eqNextServiceDate').value = equipment.next_service_date ? new Date(equipment.next_service_date).toISOString().split('T')[0] : '';
+        document.getElementById('eqStatus').value = equipment.status;
+        document.getElementById('eqLocation').value = equipment.location_detail || '';
+    } else {
+        // Ekleme Modu
+        document.getElementById('equipmentModalTitle').textContent = 'Yeni Ekipman Ekle';
+        document.getElementById('equipmentId').value = ''; // ID'yi temizle
+    }
+    document.getElementById('equipmentModal').style.display = 'flex';
+}
+function hideEquipmentModal() { document.getElementById('equipmentModal').style.display = 'none'; }
+
+function showShipmentModal(shipment = null) {
+    // Select box'ları doldur
+    populateSelect('shipmentSiteId', AppData.miningSites, 'id', 'name', 'Saha Seçiniz...');
+    populateSelect('shipmentOriginPort', AppData.ports, 'id', 'name', 'Kalkış Limanı Seçiniz...');
+    populateSelect('shipmentDestPort', AppData.ports, 'id', 'name', 'Varış Limanı Seçiniz...');
+
+    // server.js'deki 'suppliers' tablosu 'Carrier' tipini içeriyor
+    populateSelect('shipmentCarrier', (AppData.suppliers || []).filter(s => s.type === 'Carrier'), 'id', 'name', 'Taşıyıcı Seçiniz...');
+
+    populateSelect('shipmentUnit', AppData.units, 'id', 'name', 'Birim Seçiniz...');
+
+    const form = document.getElementById('shipmentForm');
+    form.reset();
+
+    if (shipment) {
+        // Düzenleme Modu
+        document.getElementById('shipmentModalTitle').textContent = 'Sevkiyatı Düzenle';
+        document.getElementById('shipmentId').value = shipment.id;
+        document.getElementById('shipmentSiteId').value = shipment.site_id;
+        document.getElementById('shipmentOriginPort').value = shipment.origin_port_id;
+        document.getElementById('shipmentDestPort').value = shipment.destination_port_id;
+        document.getElementById('shipmentCarrier').value = shipment.carrier_id;
+        document.getElementById('shipmentDate').value = shipment.shipment_date ? new Date(shipment.shipment_date).toISOString().split('T')[0] : '';
+        document.getElementById('shipmentQuantity').value = shipment.quantity;
+        document.getElementById('shipmentUnit').value = shipment.unit_id;
+        document.getElementById('shipmentStatus').value = shipment.status;
+        document.getElementById('shipmentCost').value = shipment.cost || '';
+        document.getElementById('shipmentEtd').value = shipment.etd ? new Date(shipment.etd).toISOString().split('T')[0] : '';
+        document.getElementById('shipmentEta').value = shipment.eta ? new Date(shipment.eta).toISOString().split('T')[0] : '';
+        document.getElementById('shipmentContainer').value = shipment.container_number || '';
+        document.getElementById('shipmentInvoice').value = shipment.invoice_id || '';
+    } else {
+        // Ekleme Modu
+        document.getElementById('shipmentModalTitle').textContent = 'Yeni Sevkiyat Ekle';
+        document.getElementById('shipmentId').value = ''; // ID'yi temizle
+    }
+    document.getElementById('shipmentModal').style.display = 'flex';
+}
+function hideShipmentModal() { document.getElementById('shipmentModal').style.display = 'none'; }
+
+
+// --- YENİ: Özel Onay Modalı Fonksiyonları ---
+/**
+ * @param {string} message - Modal'da gösterilecek mesaj.
+ * @param {Function} callback - 'Evet' butonuna basıldığında çalıştırılacak fonksiyon.
+ */
+function showCustomConfirm(message, callback) {
+    document.getElementById('confirmModalMessage').textContent = message;
+    confirmModalCallback = callback;
+    document.getElementById('customConfirmModal').style.display = 'flex';
+}
+
+function hideCustomConfirm() {
+    document.getElementById('customConfirmModal').style.display = 'none';
+    confirmModalCallback = null;
+}
+
+function handleConfirmYes() {
+    if (typeof confirmModalCallback === 'function') {
+        confirmModalCallback();
+    }
+    hideCustomConfirm();
+}
+
+function handleConfirmNo() {
+    hideCustomConfirm();
+}
+
+
+// --- CRUD İŞLEM FONKSİYONLARI ---
+
+/**
+ * Sunucuya API isteği göndermek için kullanılan ana yardımcı fonksiyon.
+ * @param {string} url - API endpoint'i (örn: /api/risks)
+ * @param {string} method - 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'
+ * @param {object|null} body - Gönderilecek JSON verisi
+ * @param {string} actionDesc - Hata mesajları için eylem açıklaması (örn: "Risk silme")
+ * @returns {Promise<object>} - Sunucudan gelen JSON yanıtı
+ */
+async function performFetch(url, method, body = null, actionDesc) {
+    const fullUrl = `${API_BASE_URL}${url}`;
+    console.log(`performFetch: ${method} isteği -> ${fullUrl}`); // LOG
+
+    const options = {
+        method: method,
+        headers: {
+            'Accept': 'application/json'
+        },
+    };
+
+    if (body) {
+        options.headers['Content-Type'] = 'application/json';
+        options.body = JSON.stringify(body);
+    }
+
+    try {
+        const response = await fetch(fullUrl, options);
+
+        if (!response.ok) {
+            let errorMsg = `HTTP Hata: ${response.status}`;
+            try {
+                const errData = await response.json();
+                errorMsg = errData.message || errData.error || JSON.stringify(errData);
+            } catch (e) {
+                try { errorMsg = await response.text(); } catch(textErr) {}
+            }
+            console.error(`performFetch HATA (${actionDesc}):`, errorMsg);
+            throw new Error(`'${actionDesc}' işlemi başarısız: ${errorMsg}`);
+        }
+
+        // 204 No Content (DELETE gibi) durumlarında body olmayabilir
+        if (response.status === 204) {
+            return { success: true, message: `${actionDesc} başarılı.` };
+        }
+
+        // server.js'den gelen yanıtı JSON olarak döndür
+        return await response.json();
+
+    } catch (error) {
+        console.error(`!!! performFetch KRİTİK HATA (${actionDesc}):`, error);
+        // Network hatası veya fetch'in kendisi başarısız olursa
+        if (error.message.includes("Failed to fetch")) {
+             throw new Error(`Sunucuya bağlanılamadı (${fullUrl}). Lütfen sunucunun çalıştığından emin olun.`);
+        }
+        throw error; // Yakalanan hatayı tekrar fırlat
+    }
+}
+
+/**
+ * Yeni bir operasyonel risk ekler.
+ */
+async function submitNewRisk(event) {
+    event.preventDefault(); // Formun sayfayı yenilemesini engelle
+    const form = event.target;
+    const formData = new FormData(form);
+    const riskData = Object.fromEntries(formData.entries());
+    console.log("Yeni risk gönderiliyor:", riskData);
+
+    try {
+        const result = await performFetch('/api/risks', 'POST', riskData, 'Yeni risk ekleme');
+        showDataStatusUpdate(result.message || 'Risk başarıyla eklendi!');
+        hideRiskModal();
+        form.reset();
+        await fetchAllData(); // Verileri ve paneli yenile
+    } catch (error) {
+        showDataStatusUpdate(error.message, true);
+    }
+}
+
+/**
+ * Bir riskin durumunu günceller.
+ * @param {number} riskId - Güncellenecek riskin ID'si
+ * @param {string} newStatus - 'Aktif', 'İzleniyor', 'Çözüldü'
+ */
+async function updateRiskStatus(riskId, newStatus) {
+    console.log(`Risk ${riskId} durumu güncelleniyor: ${newStatus}`);
+    try {
+        const result = await performFetch(`/api/risks/${riskId}/status`, 'PATCH', { status: newStatus }, 'Risk durum güncelleme');
+        showDataStatusUpdate(result.message || 'Risk durumu güncellendi.');
+
+        // Tamamı çekmek yerine AppData'yı manuel güncelle (daha hızlı)
+        const riskIndex = AppData.operationalRisks.findIndex(r => r.id == riskId);
+        if (riskIndex > -1) {
+            AppData.operationalRisks[riskIndex].status = newStatus;
+        }
+        // Paneli yenilemek yerine sadece ilgili satırı DOM'da güncellemek daha performanslı olabilir,
+        // ama şimdilik AppData güncellemesi yeterli, bir sonraki panel yenilemede düzelir.
+        // refreshActivePanel();
+    } catch (error) {
+        showDataStatusUpdate(error.message, true);
+        // Hata durumunda selectbox'ı eski haline getirmek için paneli yeniden yükle
+        refreshActivePanel();
+    }
+}
+
+/**
+ * Bir riski silmek için onay modalını açar.
+ * @param {number} riskId - Silinecek riskin ID'si
+ */
+function deleteRisk(riskId) {
+    const risk = AppData.operationalRisks.find(r => r.id == riskId);
+    const riskDesc = risk ? `'${risk.risk_description.substring(0, 20)}...'` : `ID: ${riskId}`;
+
+    showCustomConfirm(
+        `${riskDesc} risk kaydını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`,
+        async () => {
+            // Callback: Evet'e basılınca çalışacak kod
+            console.log(`Risk ${riskId} siliniyor...`);
+            try {
+                const result = await performFetch(`/api/risks/${riskId}`, 'DELETE', null, 'Risk silme');
+                showDataStatusUpdate(result.message || 'Risk başarıyla silindi.');
+                await fetchAllData(); // Verileri ve paneli yenile
+            } catch (error) {
+                showDataStatusUpdate(error.message, true);
+            }
+        }
+    );
+}
+
+/**
+ * Yeni ekipman ekler veya mevcut ekipmanı günceller.
+ */
+async function submitEquipmentForm(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    const eqData = Object.fromEntries(formData.entries());
+    const equipmentId = eqData.id; // Formdaki hidden input'tan ID'yi al
+
+    // Formdan gelen boş string'leri null yap (DB için önemli)
+    for (const key in eqData) {
+        if (eqData[key] === '') {
+            eqData[key] = null;
+        }
+    }
+
+    // Tarih alanlarını doğru formatta olduğundan emin ol (eğer null değillerse)
+    if(eqData.purchase_date === null) delete eqData.purchase_date;
+    if(eqData.last_service_date === null) delete eqData.last_service_date;
+    if(eqData.next_service_date === null) delete eqData.next_service_date;
+
+    try {
+        let result;
+        if (equipmentId) {
+            // ID varsa GÜNCELLE (PUT)
+            console.log(`Ekipman ${equipmentId} güncelleniyor:`, eqData);
+            result = await performFetch(`/api/equipment/${equipmentId}`, 'PUT', eqData, 'Ekipman güncelleme');
+            showDataStatusUpdate(result.message || 'Ekipman başarıyla güncellendi!');
+        } else {
+            // ID yoksa YENİ EKLE (POST)
+            console.log("Yeni ekipman gönderiliyor:", eqData);
+            result = await performFetch('/api/equipment', 'POST', eqData, 'Yeni ekipman ekleme');
+            showDataStatusUpdate(result.message || 'Ekipman başarıyla eklendi!');
+        }
+
+        hideEquipmentModal();
+        form.reset();
+        await fetchAllData(); // Verileri ve paneli yenile
+
+    } catch (error) {
+        showDataStatusUpdate(error.message, true);
+    }
+}
+
+/**
+ * Bir ekipmanı silmek için onay modalını açar.
+ * @param {number} equipmentId - Silinecek ekipmanın ID'si
+ */
+function deleteEquipment(equipmentId) {
+    const eq = AppData.equipment.find(e => e.id == equipmentId);
+    const eqName = eq ? `'${eq.equipment_name}'` : `ID: ${equipmentId}`;
+
+    showCustomConfirm(
+        `${eqName} ekipman kaydını silmek istediğinizden emin misiniz? (İlişkili bakım logları varsa silme işlemi başarısız olabilir.)`,
+        async () => {
+            // Callback: Evet'e basılınca çalışacak kod
+            console.log(`Ekipman ${equipmentId} siliniyor...`);
+            try {
+                const result = await performFetch(`/api/equipment/${equipmentId}`, 'DELETE', null, 'Ekipman silme');
+                showDataStatusUpdate(result.message || 'Ekipman başarıyla silindi.');
+                await fetchAllData(); // Verileri ve paneli yenile
+            } catch (error) {
+                showDataStatusUpdate(error.message, true);
+            }
+        }
+    );
+}
+
+/**
+ * Yeni sevkiyat ekler veya mevcut sevkiyatı günceller.
+ */
+async function submitShipmentForm(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    const shipmentData = Object.fromEntries(formData.entries());
+    const shipmentId = shipmentData.id;
+
+    // Boş string'leri null yap
+    for (const key in shipmentData) {
+        if (shipmentData[key] === '') {
+            shipmentData[key] = null;
+        }
+    }
+
+    // Tarih alanlarını doğru formatta olduğundan emin ol (eğer null değillerse)
+    if(shipmentData.shipment_date === null) delete shipmentData.shipment_date;
+    if(shipmentData.etd === null) delete shipmentData.etd;
+    if(shipmentData.eta === null) delete shipmentData.eta;
+
+    try {
+        let result;
+        if (shipmentId) {
+            // GÜNCELLE (PUT)
+            console.log(`Sevkiyat ${shipmentId} güncelleniyor:`, shipmentData);
+            result = await performFetch(`/api/shipments/${shipmentId}`, 'PUT', shipmentData, 'Sevkiyat güncelleme');
+            showDataStatusUpdate(result.message || 'Sevkiyat başarıyla güncellendi!');
+        } else {
+            // YENİ EKLE (POST)
+            console.log("Yeni sevkiyat gönderiliyor:", shipmentData);
+            result = await performFetch('/api/shipments', 'POST', shipmentData, 'Yeni sevkiyat ekleme');
+            showDataStatusUpdate(result.message || 'Sevkiyat başarıyla eklendi!');
+        }
+
+        hideShipmentModal();
+        form.reset();
+        await fetchAllData(); // Verileri ve paneli yenile
+
+    } catch (error) {
+        showDataStatusUpdate(error.message, true);
+    }
+}
+
+/**
+ * Bir sevkiyatın durumunu günceller.
+ * @param {number} shipmentId - Güncellenecek sevkiyatın ID'si
+ * @param {string} newStatus - Yeni durum
+ */
+async function updateShipmentStatus(shipmentId, newStatus) {
+    console.log(`Sevkiyat ${shipmentId} durumu güncelleniyor: ${newStatus}`);
+    try {
+        const result = await performFetch(`/api/shipments/${shipmentId}/status`, 'PATCH', { status: newStatus }, 'Sevkiyat durum güncelleme');
+        showDataStatusUpdate(result.message || 'Sevkiyat durumu güncellendi.');
+
+        // AppData'yı manuel güncelle
+        const shipmentIndex = AppData.shipmentLogs.findIndex(s => s.id == shipmentId);
+        if (shipmentIndex > -1) {
+            AppData.shipmentLogs[shipmentIndex].status = newStatus;
+        }
+    } catch (error) {
+        showDataStatusUpdate(error.message, true);
+        refreshActivePanel(); // Hata olursa selectbox'ı eski haline getir
+    }
+}
+
+/**
+ * Bir sevkiyatı silmek için onay modalını açar.
+ * @param {number} shipmentId - Silinecek sevkiyatın ID'si
+ */
+function deleteShipment(shipmentId) {
+    const ship = AppData.shipmentLogs.find(s => s.id == shipmentId);
+    const shipDesc = ship ? `${new Date(ship.shipment_date).toLocaleDateString('tr-TR')} tarihli sevkiyatı` : `ID: ${shipmentId} sevkiyatını`;
+
+    showCustomConfirm(
+        `${shipDesc} silmek istediğinizden emin misiniz?`,
+        async () => {
+            // Callback: Evet'e basılınca çalışacak kod
+            console.log(`Sevkiyat ${shipmentId} siliniyor...`);
+            try {
+                const result = await performFetch(`/api/shipments/${shipmentId}`, 'DELETE', null, 'Sevkiyat silme');
+                showDataStatusUpdate(result.message || 'Sevkiyat başarıyla silindi.');
+                await fetchAllData(); // Verileri ve paneli yenile
+            } catch (error) {
+                showDataStatusUpdate(error.message, true);
+            }
+        }
+    );
+}
+
+/**
+ * YENİ: Şehir Analizi formunu gönderir (POST veya PATCH).
+ */
+async function handleAnalysisSubmit(event, cityId) {
+    event.preventDefault(); // Formun sayfayı yeniden yüklemesini engelle
+
+    const feedbackEl = document.getElementById('form-feedback');
+    if(feedbackEl) {
+        feedbackEl.textContent = 'Kaydediliyor...';
+        feedbackEl.classList.remove('hidden', 'text-red-600');
+        feedbackEl.classList.add('text-blue-600');
+    }
+
+    // 1. Formdaki güncel verileri ID'lerine göre topla
+    const formData = {
+        economic_indicator: document.getElementById('analysis-eco-indicator').value || null,
+        infrastructure_score: document.getElementById('analysis-infra-score').value || null,
+        skilled_labor_availability_pct: document.getElementById('analysis-labor-pct').value || null,
+        risk_level: document.getElementById('analysis-risk-level').value || 'Orta',
+        notes: document.getElementById('analysis-notes').value || null
+    };
+
+    // 2. API endpoint'ini ve metodunu belirle (Ekleme vs Düzenleme)
+    const analysis = AppData.cityAnalysis?.find(c => c.city_id == cityId);
+    const isEdit = Boolean(analysis);
+
+    // server.js hem POST hem de PATCH için /api/analysis/:city_id kullanıyor
+    const method = isEdit ? 'PATCH' : 'POST';
+    const url = `/api/analysis/${cityId}`;
+    const actionDesc = isEdit ? 'Şehir analizi güncelleme' : 'Yeni şehir analizi ekleme';
+
+    try {
+        // 3. Veriyi 'performFetch' ile API'ye gönder
+        // server.js, güncellenmiş/yeni *tek bir obje* döndürür
+        const updatedRecord = await performFetch(url, method, formData, actionDesc);
+
+        // 4. BAŞARILI: Global 'AppData' objesini güncelle
+        if (isEdit) {
+            // Mevcut kaydı bul ve güncelle
+            const index = AppData.cityAnalysis.findIndex(c => c.city_id == cityId);
+            if (index > -1) {
+                AppData.cityAnalysis[index] = updatedRecord;
+            } else {
+                 // Eğer AppData'da yoksa (ki olmamalı), ekle
+                if (!AppData.cityAnalysis) AppData.cityAnalysis = [];
+                AppData.cityAnalysis.push(updatedRecord);
+            }
+        } else {
+            // Yeni kaydı listeye ekle
+            if (!AppData.cityAnalysis) AppData.cityAnalysis = [];
+            AppData.cityAnalysis.push(updatedRecord);
+        }
+
+        showDataStatusUpdate( 'Analiz başarıyla kaydedildi!'); // Mesajı basitleştirildi
+
+        // 5. Paneli güncellenmiş veriyle yeniden göstermek için ana fonksiyonu çağır
+        loadCityAnalysisPanel(cityId);
+
+    } catch (error) {
+        console.error('Analiz kaydedilemedi:', error);
+        if(feedbackEl) {
+            feedbackEl.textContent = `Hata: ${error.message}`;
+            feedbackEl.classList.remove('text-blue-600');
+            feedbackEl.classList.add('text-red-600'); // Hata mesajı görünür kalsın
+        }
+        showDataStatusUpdate(error.message, true);
+    }
+}
+
+
+// =========================================================
+// PANELLER
+// =========================================================
+
+// YENİ: CSV İndirme Yardımcı Fonksiyonu
+/**
+ * Verilen veriyi CSV formatında indirir.
+ * @param {string} filename - İndirilecek dosyanın adı (örn: riskler.csv).
+ * @param {Array<Object>} rows - İndirilecek veri satırları (obje dizisi).
+ */
+function exportToCsv(filename, rows) {
+    if (!rows || rows.length === 0) {
+        showDataStatusUpdate('İndirilecek veri yok.', true);
+        return;
+    }
+
+    const separator = ';'; // Excel'in Türkçe versiyonları için
+    const keys = Object.keys(rows[0]);
+    const csvContent =
+        keys.join(separator) +
+        '\n' +
+        rows.map(row => {
+            return keys.map(k => {
+                let cell = row[k] === null || row[k] === undefined ? '' : String(row[k]);
+                // Hücre içinde separatör veya tırnak işareti varsa çift tırnak içine al
+                if (cell.includes(separator) || cell.includes('"')) {
+                    cell = '"' + cell.replace(/"/g, '""') + '"';
+                }
+                // Yeni satır karakterlerini boşlukla değiştir (CSV'de problem yaratır)
+                cell = cell.replace(/(\r\n|\n|\r)/gm, " ");
+                return cell;
+            }).join(separator);
+        }).join('\n');
+
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' }); // BOM ekle (Türkçe karakterler için)
+    const link = document.createElement('a');
+    if (link.download !== undefined) { // Feature detection
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url); // Belleği serbest bırak
+    } else {
+         showDataStatusUpdate('Tarayıcınız bu özelliği desteklemiyor.', true);
+    }
+}
+
+function loadOverviewDashboard() {
+    console.log("loadOverviewDashboard yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const totalSites = AppData.miningSites?.length || 0;
+    const totalEmployees = AppData.employees?.length || 0;
+    const totalProduction = (AppData.productionLogs || []).reduce((sum, log) => sum + parseFloat(log.produced_amount || 0), 0);
+
+    // --- YENİ: Uyarıları Hesapla ---
+    let alertsHtml = '';
+    const criticalRisks = (AppData.operationalRisks || []).filter(r => r.severity === 'Kritik' && r.status === 'Aktif');
+    const overdueMaintenance = (AppData.equipment || []).filter(eq => {
+        try {
+            return eq.next_service_date && new Date(eq.next_service_date) < new Date();
+        } catch { return false; }
+    });
+    const delayedShipments = (AppData.shipmentLogs || []).filter(s => s.status === 'Gecikti');
+
+    if (criticalRisks.length > 0) {
+        alertsHtml += `<div class="alert-box alert-critical"><strong>Kritik Riskler (${criticalRisks.length}):</strong><ul>${criticalRisks.slice(0, 3).map(r => `<li><a href="#" onclick="navigateToPanel('risks', ${r.id})" class="panel-link">${r.risk_description.substring(0, 40)}... (${r.site_name})</a></li>`).join('')}${criticalRisks.length > 3 ? '<li>...</li>' : ''}</ul></div>`;
+    }
+    if (overdueMaintenance.length > 0) {
+        alertsHtml += `<div class="alert-box alert-warning"><strong>Bakımı Gecikmiş Ekipmanlar (${overdueMaintenance.length}):</strong><ul>${overdueMaintenance.slice(0, 3).map(eq => `<li><a href="#" onclick="navigateToPanel('equipment', ${eq.id})" class="panel-link">${eq.equipment_name} (${eq.site_name})</a></li>`).join('')}${overdueMaintenance.length > 3 ? '<li>...</li>' : ''}</ul></div>`;
+    }
+    if (delayedShipments.length > 0) {
+         alertsHtml += `<div class="alert-box alert-info"><strong>Gecikmiş Sevkiyatlar (${delayedShipments.length}):</strong><ul>${delayedShipments.slice(0, 3).map(s => `<li><a href="#" onclick="navigateToPanel('shipments', ${s.id})" class="panel-link">${s.destination_port_name} (${s.carrier_name})</a></li>`).join('')}${delayedShipments.length > 3 ? '<li>...</li>' : ''}</ul></div>`;
+    }
+    if (!alertsHtml) {
+        alertsHtml = '<p class="text-sm text-gray-500">Takip edilmesi gereken önemli bir uyarı bulunmuyor.</p>';
+    }
+    // --- Uyarı Hesaplama Sonu ---
+
+    let marketRatesHtml = '<p class="text-xs text-gray-400">Piyasa verisi yükleniyor...</p>';
+    if (MarketData.error) {
+        marketRatesHtml = `<p class="text-xs text-red-600 font-semibold">${MarketData.error}</p>`;
+    } else if (MarketData.rates?.rates) {
+        const audRate = (1 / (MarketData.rates.rates.AUD || 1)).toFixed(2); const eurRate = (MarketData.rates.rates.EUR || 0).toFixed(2); marketRatesHtml = `<div class="flex justify-around text-center"><div><span class="text-sm font-medium text-gray-500">AUD/USD</span><p class="text-lg font-bold text-blue-600">${audRate}</p></div><div><span class="text-sm font-medium text-gray-500">EUR/USD</span><p class="text-lg font-bold text-blue-600">${eurRate}</p></div></div>`;
+    }
+
+    let commoditiesHtml = '<p class="text-xs text-gray-400">Maden fiyatları yükleniyor...</p>';
+    if (MarketData.error) {
+         commoditiesHtml = ``; // Zaten üstte hata mesajı var
+    } else if (MarketData.commodities) {
+        const {gold, iron_ore, coal, bauxite} = MarketData.commodities; commoditiesHtml = ` <li class="py-1 flex justify-between items-center"><span class="text-sm font-medium">${gold?.name || '?'}</span><span class="text-sm font-bold text-yellow-600">$${(gold?.price || 0).toFixed(2)}/${gold?.unit || '?'}</span></li> <li class="py-1 flex justify-between items-center"><span class="text-sm font-medium">${iron_ore?.name || '?'}</span><span class="text-sm font-bold text-gray-700">$${(iron_ore?.price || 0).toFixed(2)}/${iron_ore?.unit || '?'}</span></li> <li class="py-1 flex justify-between items-center"><span class="text-sm font-medium">${coal?.name || '?'}</span><span class="text-sm font-bold text-gray-700">$${(coal?.price || 0).toFixed(2)}/${coal?.unit || '?'}</span></li> <li class="py-1 flex justify-between items-center"><span class="text-sm font-medium">${bauxite?.name || '?'}</span><span class="text-sm font-bold text-gray-700">$${(bauxite?.price || 0).toFixed(2)}/${bauxite?.unit || '?'}</span></li> `;
+    }
+
+    panelContent.innerHTML = `
+        <div class="space-y-4">
+            <h2 class="text-xl font-bold text-gray-800">Genel Bakış</h2>
+            <!-- YENİ: Uyarılar Bölümü -->
+            <div class="stat-card p-4">
+                <h3 class="font-semibold text-gray-700 mb-2">Önemli Uyarılar</h3>
+                ${alertsHtml}
+            </div>
+            <!-- Mevcut İçerik -->
+            <div class="stat-card p-4 space-y-3">
+                 <h3 class="font-semibold text-gray-700">Piyasa Verileri</h3>
+                 ${marketRatesHtml}
+                 <ul class="divide-y divide-gray-100 border-t pt-2">${commoditiesHtml}</ul>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <div class="stat-card p-4"><h3 class="font-semibold text-gray-500">Toplam Saha</h3><p class="text-3xl font-bold text-gray-900">${totalSites}</p></div>
+                 <div class="stat-card p-4"><h3 class="font-semibold text-gray-500">Toplam Çalışan</h3><p class="text-3xl font-bold text-gray-900">${totalEmployees}</p></div>
+                 <div class="stat-card p-4"><h3 class="font-semibold text-gray-500">Toplam Üretim</h3><p class="text-3xl font-bold text-gray-900">${totalProduction.toLocaleString('tr-TR')} t</p></div>
+            </div>
+            <div class="stat-card p-4">
+                 <h3 class="font-semibold text-gray-700 mb-2">Saha Bazında Üretim</h3>
+                 <div class="chart-container"><canvas id="productionBySiteChart"></canvas></div>
+            </div>
+        </div>`;
+    const prodChartCtx = document.getElementById('productionBySiteChart');
+    if (prodChartCtx && AppData.miningSites && AppData.productionLogs) {
+        const productionBySite = AppData.miningSites.map(site => { const siteProduction = (AppData.productionLogs || []).filter(log => log.site_id === site.id).reduce((sum, log) => sum + parseFloat(log.produced_amount || 0), 0); return { name: site.name, production: siteProduction }; }).filter(d => d.production > 0);
+        if (productionBySite.length > 0) {
+             chartInstances.production = new Chart(prodChartCtx, { type: 'bar', data: { labels: productionBySite.map(d => d.name), datasets: [{ label: 'Üretim (t)', data: productionBySite.map(d => d.production), backgroundColor: '#3b82f6' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, indexAxis: 'y' } });
+        } else { prodChartCtx.parentElement.innerHTML = '<p class="text-center text-gray-500 py-5">Üretim verisi bulunamadı.</p>'; }
+    } else if (prodChartCtx) { prodChartCtx.parentElement.innerHTML = '<p class="text-center text-gray-500 py-5">Grafik için veri yüklenemedi.</p>'; }
+}
+
+// YENİ: Başka bir panele yönlendirme fonksiyonu
+/**
+ * Belirtilen panele gider ve isteğe bağlı olarak o panel içinde belirli bir öğeye odaklanır/vurgular.
+ * @param {string} panelKey - Gidilecek panelin anahtarı (navButtons'daki gibi, örn: 'risks').
+ * @param {number|null} highlightId - Panel içinde vurgulanacak öğenin ID'si (isteğe bağlı).
+ */
+function navigateToPanel(panelKey, highlightId = null) {
+    const navButton = document.getElementById(`nav-${panelKey}`);
+    if (navButton) {
+        navButton.click(); // İlgili navigasyon butonuna tıkla (paneli yükler)
+
+        // Vurgulama işlemini panel yüklendikten sonra yapmak için kısa bir gecikme ekle
+        // Bu ideal bir yöntem değil, daha iyisi panel yükleyicinin bir callback almasıdır.
+        // Şimdilik basitlik için setTimeout kullanıyoruz.
+        if (highlightId) {
+            setTimeout(() => {
+                // Örnek vurgulama: ID'ye sahip öğeyi bul ve geçici olarak arka planını değiştir
+                const elementToHighlight = document.querySelector(`[data-record-id="${highlightId}"]`); // Panellerdeki list item'larına bu attribute'u eklemek gerekir
+                 if (elementToHighlight) {
+                    elementToHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    elementToHighlight.style.transition = 'background-color 0.5s ease';
+                    elementToHighlight.style.backgroundColor = '#eff6ff'; // Açık mavi
+                    setTimeout(() => {
+                        elementToHighlight.style.backgroundColor = ''; // Rengi geri al
+                    }, 2000); // 2 saniye vurgulu kalsın
+                } else {
+                    console.warn(`MapsToPanel: Vurgulanacak öğe bulunamadı (Panel: ${panelKey}, ID: ${highlightId})`);
+                }
+            }, 500); // Panel yüklemesi için yarım saniye bekle
+        }
+    } else {
+        console.error(`MapsToPanel: Geçersiz panel anahtarı: ${panelKey}`);
+    }
+}
+
+
+function loadSiteDetailsPanel(siteId) {
+    console.log(`loadSiteDetailsPanel yükleniyor (Site ID: ${siteId})...`);
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const site = AppData.miningSites?.find(s => s.id == siteId);
+    if (!site) { panelContent.innerHTML = `<p class="text-red-500">Saha bilgisi bulunamadı (ID: ${siteId}).</p>`; return; }
+    const siteProduction = (AppData.productionLogs || []).filter(log => log.site_id == siteId);
+    const siteEquipment = (AppData.equipment || []).filter(eq => eq.site_id == siteId);
+    panelContent.innerHTML = `<div class="space-y-4"><div><h2 class="text-2xl font-bold text-gray-800">${site.name}</h2><p class="text-md text-gray-600">${site.city_name || '?'} - ${site.mineral_name || '?'}</p></div><div class="stat-card p-4"><h3 class="font-semibold text-gray-700 mb-2">Aylık Üretim (${site.mineral_unit || '?'})</h3><div class="chart-container"><canvas id="siteProductionChart"></canvas></div></div><div class="stat-card p-4"><h3 class="font-semibold text-gray-700 mb-2">Ekipman Durumu (${siteEquipment.length})</h3><ul class="divide-y divide-gray-200">${siteEquipment.length > 0 ? siteEquipment.map(eq => `<li class="py-2 flex justify-between"><span>${eq.equipment_name || '?'} (${eq.type || '?'})</span><span class="font-mono text-sm text-gray-500">${eq.status || '?'}</span></li>`).join('') : '<li class="py-2 text-gray-500">Ekipman yok.</li>'}</ul></div></div>`;
+    const prodChartCtx = document.getElementById('siteProductionChart');
+    if (prodChartCtx && siteProduction.length > 0) {
+        const monthlyProduction = siteProduction.reduce((acc, log) => { try { const date = new Date(log.log_datetime); const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`; acc[monthKey] = (acc[monthKey] || 0) + parseFloat(log.produced_amount || 0); } catch(e){} return acc; }, {});
+        const sortedMonths = Object.keys(monthlyProduction).sort();
+        if (sortedMonths.length > 0) {
+             chartInstances.siteProduction = new Chart(prodChartCtx, { type: 'line', data: { labels: sortedMonths, datasets: [{ label: `Üretim (${site.mineral_unit || '?'})`, data: sortedMonths.map(m => monthlyProduction[m]), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.1 }] }, options: { responsive: true, maintainAspectRatio: false } });
+        } else { prodChartCtx.parentElement.innerHTML = '<p class="text-center text-gray-500 py-5">Aylık üretim verisi hesaplanamadı.</p>'; }
+    } else if (prodChartCtx) { prodChartCtx.parentElement.innerHTML = '<p class="text-center text-gray-500 py-5">Üretim verisi bulunamadı.</p>'; }
+}
+
+function loadEmployeesPanel() {
+    console.log("loadEmployeesPanel yükleniyor..."); // LOG
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const employees = AppData.employees || [];
+
+    panelContent.innerHTML = `
+        <div class="flex justify-between items-center mb-4">
+             <h2 class="text-xl font-bold text-gray-800">Çalışan Listesi (${employees.length})</h2>
+             <button onclick="exportToCsv('calisanlar.csv', AppData.employees || [])" class="download-csv-button">CSV İndir</button>
+        </div>
+        <div class="stat-card bg-white overflow-hidden">
+             <ul class="divide-y divide-gray-200 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                 ${employees.length > 0 ? employees.map(emp => `
+                     <li class="p-3 flex items-center justify-between hover:bg-slate-50" data-record-id="${emp.id}">
+                         <div>
+                             <p class="text-sm font-medium text-gray-900">${emp.first_name || ''} ${emp.last_name || ''}</p>
+                             <p class="text-xs text-gray-500">${emp.role_name || 'Rol Yok'} - ${emp.department_name || 'Departman Yok'}</p>
+                             <p class="text-xs text-gray-400">${emp.email || '-'}</p>
+                         </div>
+                         <div class="text-sm text-right text-gray-500 flex-shrink-0 ml-2">
+                             <p class="font-medium">
+                                 <!-- YENİ: Site adına tıklama -->
+                                 <a href="#" onclick="navigateToPanel('overview', null); loadSiteDetailsPanel(${emp.site_id})" class="panel-link">${emp.site_name || 'Merkez Ofis?'}</a>
+                             </p>
+                             <p class="text-xs">İşe Başlama: ${emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('tr-TR') : '-'}</p>
+                             <p class="text-xs">Tip: ${emp.employment_type || '-'}</p>
+                         </div>
+                          </li>
+                 `).join('') : '<li class="p-4 text-center text-gray-500">Çalışan bulunamadı.</li>'}
+             </ul>
+        </div>
+        `;
+}
+
+function loadCompanyPanel() {
+    console.log("loadCompanyPanel yükleniyor..."); // LOG
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const companyInfo = AppData.companyInfo?.[0] || {};
+    const hqCityName = findCityName(companyInfo.headquarters_city_id);
+
+    const description = companyInfo.description || 'Avustralya merkezli lider madencilik operasyonları şirketi.';
+    const ceo = companyInfo.ceo || 'Belirtilmedi';
+    // established_date alanı company_info'da yoktu, created_at kullanılabilir belki?
+    const established = companyInfo.created_at ? new Date(companyInfo.created_at).getFullYear() : 'Belirtilmedi';
+    const website = companyInfo.website || '#';
+    const websiteText = companyInfo.website || 'Belirtilmedi';
+
+    panelContent.innerHTML = `
+         <div class="space-y-4">
+             <h2 class="text-xl font-bold text-gray-800">Şirket Bilgileri</h2>
+             <div class="stat-card p-6 space-y-4">
+                 <h3 class="text-2xl font-bold text-indigo-700">${companyInfo.name || 'Şirket Adı Yüklenemedi'}</h3>
+                 <p class="text-gray-600">${description}</p>
+                 <div class="border-t pt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                     <p><strong>ABN:</strong> ${companyInfo.abn || '-'}</p>
+                     <p><strong>Kuruluş Yılı:</strong> ${established}</p>
+                     <p><strong>CEO:</strong> ${ceo}</p>
+                     <p><strong>Genel Merkez:</strong> ${hqCityName || 'Bilinmiyor'} (ID: ${companyInfo.headquarters_city_id || '-'})</p>
+                     <p class="col-span-2"><strong>Web Sitesi:</strong> <a href="${website}" target="_blank" class="text-blue-600 hover:underline">${websiteText}</a></p>
+                     <p><strong>Ülke:</strong> ${companyInfo.country || '-'}</p>
+                 </div>
+                  </div>
+         </div>
+    `;
+}
+
+function loadMineralsPanel() {
+    console.log("loadMineralsPanel yükleniyor..."); // LOG
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const productionLogs = AppData.productionLogs || [];
+    const minerals = AppData.minerals || [];
+
+    const mineralTotals = minerals.reduce((acc, mineral) => { acc[mineral.id] = { ...mineral, totalProduced: 0 }; return acc; }, {});
+    productionLogs.forEach(log => { if (mineralTotals[log.mineral_id]) { mineralTotals[log.mineral_id].totalProduced += parseFloat(log.produced_amount || 0); } });
+    const mineralData = Object.values(mineralTotals).filter(m => m.totalProduced > 0).sort((a,b) => b.totalProduced - a.totalProduced);
+
+    panelContent.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Toplam Maden Üretimi</h2>
+        <div class="space-y-3">
+            ${mineralData.length > 0 ? mineralData.map(mineral => `
+                <div class="stat-card p-4 flex items-center space-x-4 hover:bg-slate-50">
+                    <div class="flex-shrink-0 w-8 h-8">${createMineralIconSVG(mineral.id)}</div>
+                    <div class="flex-grow">
+                        <p class="text-sm font-medium text-gray-500">${mineral.name}</p>
+                        <p class="text-2xl font-bold text-gray-900">
+                            ${mineral.totalProduced.toLocaleString('tr-TR')}
+                            <span class="text-lg font-normal text-gray-600"> ${mineral.unit || '?'}</span>
+                        </p>
+                        <p class="text-xs text-gray-400">Tipik Kalite Birimi: ${mineral.typical_grade_unit || '-'}</p>
+                    </div>
+                     </div>
+            `).join('') : '<p class="text-center text-gray-500 py-5">Henüz üretim kaydı bulunamadı.</p>'}
+        </div>
+        `;
+}
+
+function loadHSEPanel() {
+    console.log("loadHSEPanel yükleniyor..."); // LOG
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const safetyIncidentsData = AppData.safetyIncidents || [];
+    const envIncidentsData = AppData.environmentalIncidents || [];
+    let daysSinceLastIncident = 'N/A';
+    if (safetyIncidentsData.length > 0) { const lastIncident = safetyIncidentsData[0]; try { const lastDate = new Date(lastIncident.incident_datetime); daysSinceLastIncident = Math.floor((new Date().getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)); } catch(e){} }
+    const severityCounts = { 'Düşük': 0, 'Orta': 0, 'Yüksek': 0, 'Kritik': 0 }; safetyIncidentsData.forEach(inc => { if (severityCounts.hasOwnProperty(inc.severity)) severityCounts[inc.severity]++; });
+    const activeSafetyIncidents = safetyIncidentsData.filter(inc => inc.status === 'Aktif');
+    const activeEnvIncidents = envIncidentsData.filter(inc => inc.remediation_status === 'Pending');
+    panelContent.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">İSG & Çevre Olayları</h2>
+        <div class="space-y-4">
+            <div class="stat-card p-6 text-center bg-green-50 border-green-200">
+                <h3 class="font-semibold text-lg text-green-700">Kayıpsız Gün Sayısı</h3>
+                <p class="text-6xl font-extrabold text-green-600">${daysSinceLastIncident}</p>
+                <p class="text-sm text-gray-500">Son olaydan bu yana geçen gün</p>
+            </div>
+            <div class="stat-card p-4">
+                <h3 class="font-semibold text-gray-700 mb-2">Güvenlik Olayı Ciddiyeti Dağılımı</h3>
+                <div class="chart-container"><canvas id="safetySeverityChart"></canvas></div>
+            </div>
+            <div class="stat-card p-4">
+                 <div class="flex justify-between items-center mb-2">
+                     <h3 class="font-semibold text-gray-700">Aktif Olaylar (Güvenlik - ${activeSafetyIncidents.length})</h3>
+                     <button onclick="showDataStatusUpdate('Yeni olay ekleme formu henüz eklenmedi.', true)" class="modal-button modal-button-submit text-xs py-1">Yeni Olay Bildir</button>
+                 </div>
+                <ul class="divide-y divide-gray-200 max-h-40 overflow-y-auto custom-scrollbar">
+                    ${activeSafetyIncidents.length > 0 ? activeSafetyIncidents.map(inc => `
+                        <li class="py-2 hover:bg-slate-50 px-1" data-record-id="safety-${inc.id}"> <!-- Vurgulama için ID -->
+                            <p class="text-sm font-medium text-gray-900">${inc.description?.substring(0, 60) || '?'}...</p>
+                            <p class="text-xs text-gray-500">
+                                Saha: <a href="#" onclick="navigateToPanel('overview', null); loadSiteDetailsPanel(${inc.site_id})" class="panel-link">${inc.site_name || '?'}</a> | Ciddiyet: <span class="font-semibold ${inc.severity=='Kritik'?'text-red-700':inc.severity=='Yüksek'?'text-red-500':inc.severity=='Orta'?'text-yellow-600':'text-green-600'}">${inc.severity}</span> | Tarih: ${inc.incident_datetime ? new Date(inc.incident_datetime).toLocaleDateString('tr-TR') : '-'}
+                            </p>
+                         </li>
+                    `).join('') : '<li class="py-3 text-center text-gray-500">Aktif güvenlik olayı yok.</li>'}
+                </ul>
+            </div>
+            <div class="stat-card p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-semibold text-gray-700">Aktif Olaylar (Çevre - ${activeEnvIncidents.length})</h3>
+                    <button onclick="showDataStatusUpdate('Yeni olay ekleme formu henüz eklenmedi.', true)" class="modal-button modal-button-submit text-xs py-1">Yeni Olay Bildir</button>
+                 </div>
+                <ul class="divide-y divide-gray-200 max-h-40 overflow-y-auto custom-scrollbar">
+                     ${activeEnvIncidents.length > 0 ? activeEnvIncidents.map(inc => `
+                         <li class="py-2 hover:bg-slate-50 px-1" data-record-id="env-${inc.id}"> <!-- Vurgulama için ID -->
+                             <p class="text-sm font-medium text-gray-900">${inc.type || '?'} (${inc.volume || 0} L)</p>
+                             <p class="text-xs text-orange-600">
+                                Saha: <a href="#" onclick="navigateToPanel('overview', null); loadSiteDetailsPanel(${inc.site_id})" class="panel-link">${inc.site_name || '?'}</a> | Durum: ${inc.remediation_status || '?'} | Tarih: ${inc.date ? new Date(inc.date).toLocaleDateString('tr-TR') : '-'}
+                             </p>
+                             </li>
+                     `).join('') : '<li class="py-3 text-center text-gray-500">Aktif çevre olayı yok.</li>'}
+                </ul>
+            </div>
+        </div>
+    `;
+    const safetyChartCtx = document.getElementById('safetySeverityChart');
+    if (safetyChartCtx && safetyIncidentsData.length > 0) { chartInstances.safetySeverity = new Chart(safetyChartCtx, { type: 'bar', data: { labels: Object.keys(severityCounts), datasets: [{ label: 'Olay Sayısı', data: Object.values(severityCounts), backgroundColor: ['#22c55e', '#f97316', '#ef4444', '#991b1b'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } }); }
+    else if(safetyChartCtx) { safetyChartCtx.parentElement.innerHTML = '<p class="text-center text-gray-500 py-5">Güvenlik olayı verisi bulunamadı.</p>'; }
+}
+
+function loadEfficiencyPanel() {
+    console.log("loadEfficiencyPanel yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const productionLogs = AppData.productionLogs || [];
+    const shiftData = { 'Sabah': { total_eff: 0, count: 0 }, 'Öğle': { total_eff: 0, count: 0 }, 'Gece': { total_eff: 0, count: 0 } };
+    productionLogs.forEach(log => { if (shiftData.hasOwnProperty(log.shift) && log.efficiency_pct != null) { shiftData[log.shift].total_eff += parseFloat(log.efficiency_pct); shiftData[log.shift].count++; } });
+    const shiftLabels = Object.keys(shiftData);
+    const shiftAvgEff = shiftLabels.map(shift => (shiftData[shift].count > 0 ? (shiftData[shift].total_eff / shiftData[shift].count) : 0));
+    const siteKpis = {};
+    productionLogs.forEach(log => { const id = log.site_id; if (!siteKpis[id]) siteKpis[id] = { id: id, name: log.site_name || `Saha ID: ${id}`, prod: 0, fuel: 0, hours: 0 }; siteKpis[id].prod += parseFloat(log.produced_amount || 0); siteKpis[id].fuel += parseFloat(log.fuel_consumed || 0); siteKpis[id].hours += parseFloat(log.operating_hours || 0); });
+    const siteKpiData = Object.values(siteKpis).map(data => ({ id: data.id, name: data.name, fuelPerTon: data.prod > 0 ? (data.fuel / data.prod) : 0, prodPerHour: data.hours > 0 ? (data.prod / data.hours) : 0 })).sort((a,b) => (a.name).localeCompare(b.name));
+    panelContent.innerHTML = `<h2 class="text-xl font-bold text-gray-800 mb-4">Operasyonel Verimlilik</h2><div class="space-y-4"><div class="stat-card p-4"><h3 class="font-semibold text-gray-700 mb-2">Vardiya Verimlilik Ortalaması (%)</h3><div class="chart-container"><canvas id="shiftEfficiencyChart"></canvas></div></div><div class="stat-card p-4"><h3 class="font-semibold text-gray-700 mb-2">Saha Bazlı KPI'lar</h3><ul class="divide-y divide-gray-200 max-h-[50vh] overflow-y-auto custom-scrollbar">${siteKpiData.length > 0 ? siteKpiData.map(site => `<li class="py-3 px-1 hover:bg-slate-50" data-record-id="site-${site.id}"><p class="text-md font-medium text-gray-900"><a href="#" onclick="navigateToPanel('overview', null); loadSiteDetailsPanel(${site.id})" class="panel-link">${site.name}</a></p><div class="flex flex-col sm:flex-row justify-between text-sm mt-1 space-y-1 sm:space-y-0"><span class="text-gray-600">Ton Başına Yakıt: <strong class="text-blue-600">${site.fuelPerTon.toFixed(2)} L/t</strong></span><span class="text-gray-600">Saatlik Üretim: <strong class="text-blue-600">${site.prodPerHour.toFixed(2)} t/s</strong></span></div></li>`).join('') : '<li class="py-4 text-center text-gray-500">KPI hesaplamak için yeterli veri yok.</li>'}</ul></div></div>`;
+    const shiftChartCtx = document.getElementById('shiftEfficiencyChart');
+    if (shiftChartCtx && productionLogs.length > 0) { chartInstances.shiftEfficiency = new Chart(shiftChartCtx, { type: 'bar', data: { labels: shiftLabels, datasets: [{ label: 'Ort. Verimlilik (%)', data: shiftAvgEff, backgroundColor: ['#f97316', '#3b82f6', '#1e293b'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } } }); }
+    else if (shiftChartCtx) { shiftChartCtx.parentElement.innerHTML = '<p class="text-center text-gray-500 py-5">Vardiya verimlilik verisi bulunamadı.</p>'; }
+}
+
+function loadCostPanel() {
+    console.log("loadCostPanel yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const maintenanceCosts = AppData.maintenanceLogs || []; const shipmentCosts = AppData.shipmentLogs || []; const safetyCosts = AppData.safetyIncidents || []; const envCosts = AppData.environmentalIncidents || []; const productionLogs = AppData.productionLogs || [];
+    const totalMaintenanceCost = maintenanceCosts.reduce((sum, log) => sum + parseFloat(log.cost || 0), 0); const totalShipmentCost = shipmentCosts.reduce((sum, log) => sum + parseFloat(log.cost || 0), 0); const totalSafetyCost = safetyCosts.reduce((sum, log) => sum + parseFloat(log.cost_estimate || 0), 0); const totalEnvCost = envCosts.reduce((sum, log) => sum + parseFloat(log.fine_amount || 0), 0); const totalCost = totalMaintenanceCost + totalShipmentCost + totalSafetyCost + totalEnvCost; const totalProduction = productionLogs.reduce((sum, log) => sum + parseFloat(log.produced_amount || 0), 0); const costPerTon = totalProduction > 0 ? (totalCost / totalProduction) : 0; const costBreakdownLabels = ['Bakım', 'Sevkiyat', 'İSG Olayları', 'Çevre Cezaları']; const costBreakdownData = [totalMaintenanceCost, totalShipmentCost, totalSafetyCost, totalEnvCost];
+    const equipCosts = {}; maintenanceCosts.forEach(log => { const id = log.equipment_id; const cost = parseFloat(log.cost || 0); if (id != null) equipCosts[id] = (equipCosts[id] || 0) + cost; });
+    const sortedEquipCosts = Object.keys(equipCosts).map(id => ({ id: parseInt(id), name: findEquipmentName(parseInt(id)), cost: equipCosts[id] })).filter(eq => eq.cost > 0).sort((a, b) => b.cost - a.cost).slice(0, 5);
+    panelContent.innerHTML = `<h2 class="text-xl font-bold text-gray-800 mb-4">Maliyet Analizi</h2><div class="space-y-4"><div class="stat-card p-6 text-center bg-blue-50 border-blue-200"><h3 class="font-semibold text-lg text-blue-700">Ton Başına Toplam Maliyet</h3><p class="text-6xl font-extrabold text-blue-600">$${costPerTon.toFixed(2)}</p><p class="text-sm text-gray-500">(Toplam Maliyet / Toplam Üretim)</p></div><div class="stat-card p-4"><h3 class="font-semibold text-gray-700 mb-2">Maliyet Dağılımı</h3><div class="chart-container-pie"><canvas id="costBreakdownChart"></canvas></div></div><div class="stat-card p-4"><h3 class="font-semibold text-gray-700 mb-2">En Yüksek Bakım Maliyetli Ekipmanlar</h3><ul class="divide-y divide-gray-200">${sortedEquipCosts.length > 0 ? sortedEquipCosts.map(eq => `<li class="py-2 flex justify-between items-center hover:bg-slate-50 px-1" data-record-id="${eq.id}"><span class="text-sm font-medium text-gray-900"><a href="#" onclick="navigateToPanel('equipment', ${eq.id})" class="panel-link">${eq.name}</a></span><span class="text-sm font-bold text-red-600">$${eq.cost.toLocaleString('tr-TR')}</span></li>`).join('') : '<li class="py-3 text-center text-gray-500">Bakım maliyet kaydı yok.</li>'}</ul></div></div>`;
+    const costChartCtx = document.getElementById('costBreakdownChart');
+    if (costChartCtx && totalCost > 0) { chartInstances.costBreakdown = new Chart(costChartCtx, { type: 'pie', data: { labels: costBreakdownLabels, datasets: [{ data: costBreakdownData, backgroundColor: ['#f97316', '#3b82f6', '#ef4444', '#991b1b'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } }); }
+    else if(costChartCtx) { costChartCtx.parentElement.innerHTML = '<p class="text-center text-gray-500 py-5">Maliyet verisi bulunamadı.</p>'; }
+}
+
+/**
+ * 1. ŞEHİR ANALİZ PANELİ (GÖRÜNTÜLEME)
+ * Bu fonksiyon, haritadan potansiyel bir şehre tıklandığında çalışır.
+ */
+function loadCityAnalysisPanel(cityId) {
+    console.log(`loadCityAnalysisPanel yükleniyor (City ID: ${cityId})...`);
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+
+    // Verileri global AppData'dan al
+    const city = AppData.cities?.find(c => c.id == cityId);
+    // DİKKAT: AppData.cityAnalysis bir DİZİ'dir.
+    const analysis = AppData.cityAnalysis?.find(c => c.city_id == cityId);
+    const potentials = (AppData.potentialReserves || []).filter(p => p.city_id == cityId);
+
+    if (!city) {
+        panelContent.innerHTML = `<h2 class="text-xl font-bold text-red-600">Hata</h2><p>Şehir bilgisi bulunamadı (ID: ${cityId}).</p>`;
+        return;
+    }
+
+    // Maliyet hesaplamaları
+    const BASE_SETUP_COSTS = { 1: 500000000, 2: 1200000000, 3: 300000000, 4: 450000000, 'default': 200000000 };
+    const RISK_MULTIPLIER = { 'Düşük': 1.0, 'Orta': 1.25, 'Yüksek': 1.6 };
+    let infra_multiplier = 1.5;
+    let risk_multiplier = 1.25;
+    if (analysis) {
+        infra_multiplier = 1.5 - (parseFloat(analysis.infrastructure_score || 50) / 200);
+        risk_multiplier = RISK_MULTIPLIER[analysis.risk_level] || 1.25;
+    }
+
+    // 'onclick' olayı artık 'renderAnalysisForm' fonksiyonunu çağırıyor.
+    const buttonHtml = `<button onclick="renderAnalysisForm(${cityId})" class="modal-button ${analysis? 'modal-button-cancel' : 'modal-button-submit'} text-xs py-1">
+                            ${analysis? 'Analizi Düzenle' : 'Analiz Verisi Ekle'}
+                        </button>`;
+
+    panelContent.innerHTML = `
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold text-gray-800">${city.name} - Stratejik Analiz</h2>
+            ${buttonHtml}
+        </div>
+        <div class="space-y-4 mt-2">
+            <div class="stat-card p-4">
+                <h3 class="font-semibold text-gray-700 mb-2">Genel Değerlendirme</h3>
+                ${analysis? `
+                    <ul class="divide-y divide-gray-200 text-sm">
+                        <li class="py-1.5 flex justify-between"><span>Ekonomik Gösterge:</span> <span class="font-medium">$${parseFloat(analysis.economic_indicator || 0).toLocaleString('tr-TR')}</span></li>
+                        <li class="py-1.5 flex justify-between"><span>Altyapı Skoru:</span> <span class="font-medium">${analysis.infrastructure_score || '?'} / 100</span></li>
+                        <li class="py-1.5 flex justify-between"><span>Nitelikli İş Gücü:</span> <span class="font-medium">%${analysis.skilled_labor_availability_pct || '?'}</span></li>
+                        <li class="py-1.5 flex justify-between"><span>Genel Risk:</span> <span class="font-semibold ${analysis.risk_level=='Yüksek'?'text-red-600':analysis.risk_level=='Orta'?'text-yellow-600':'text-green-600'}">${analysis.risk_level || '?'}</span></li>
+                        ${analysis.notes? `<li class="pt-2"><p class="text-xs italic text-gray-500">Not: ${analysis.notes}</p></li>` : ''}
+                    </ul>` : '<p class="text-center text-gray-500 py-3">Bu şehir için detaylı analiz verisi girilmemiş.</p>'}
+            </div>
+            <div class="stat-card p-4">
+                <h3 class="font-semibold text-gray-700 mb-2">Potansiyel Rezervler ve Tahmini Kurulum Maliyeti</h3>
+                <ul class="divide-y divide-gray-200">
+                    ${potentials.length > 0? potentials.map(pot => {
+                        const mineralName = pot.mineral_name || findMineralName(pot.mineral_id);
+                        const unitName = pot.unit_abbreviation || findUnitName(pot.unit_id);
+                        const baseCost = BASE_SETUP_COSTS[pot.mineral_id] || BASE_SETUP_COSTS['default'];
+                        const estimatedCost = baseCost * infra_multiplier * risk_multiplier;
+                        return `<li class="py-3">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 flex-shrink-0">${createMineralIconSVG(pot.mineral_id)}</div>
+                                    <div>
+                                        <p class="text-md font-medium text-gray-900">${mineralName}</p>
+                                        <p class="text-sm text-gray-600">Tahmini Rezerv: ${parseFloat(pot.estimated_amount || 0).toLocaleString('tr-TR')} ${unitName}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-2 p-2 bg-blue-50 rounded-md text-center">
+                                    <p class="text-sm text-blue-700">Tahmini Kurulum Maliyeti (Simülasyon)</p>
+                                    <p class="text-xl font-bold text-blue-900">$${(estimatedCost / 1000000).toFixed(0)} Milyon</p>
+                                </div>
+                            </li>`;
+                    }).join('') : '<li class="py-3 text-center text-gray-500">Bu şehir için potansiyel rezerv kaydı bulunamadı.</li>'}
+                </ul>
+            </div>
+        </div>`;
+}
+
+/**
+ * 2. ŞEHİR ANALİZ PANELİ (FORM)
+ * 'Analizi Düzenle' butonuna basıldığında bu fonksiyon çalışır.
+ * Mevcut verilerle doldurulmuş bir HTML formu oluşturur.
+ */
+function renderAnalysisForm(cityId) {
+    const panelContent = document.getElementById('panel-content');
+    const city = AppData.cities?.find(c => c.id == cityId);
+    // Veriyi form doldurmak için alıyoruz
+    const analysis = AppData.cityAnalysis?.find(c => c.city_id == cityId);
+    const isEdit = Boolean(analysis); // Kayıt var mı? (Ekleme mi, Düzenleme mi?)
+
+    if (!city) {
+        panelContent.innerHTML = `<h2 class="text-xl font-bold text-red-600">Hata</h2><p>Şehir bilgisi bulunamadı.</p>`;
+        return;
+    }
+
+    // ENUM değerleri (server.js ile aynı olmalı)
+    const riskLevels = ['Düşük', 'Orta', 'Yüksek'];
+    const riskOptions = riskLevels.map(level =>
+        `<option value="${level}" ${analysis?.risk_level === level? 'selected' : ''}>
+            ${level}
+         </option>`
+    ).join('');
+
+    // Formun HTML'ini oluştur
+    panelContent.innerHTML = `
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold text-gray-800">${city.name} - Analizi ${isEdit? 'Düzenle' : 'Ekle'}</h2>
+        </div>
+
+        <!-- DİKKAT: onsubmit olayı handleAnalysisSubmit'i çağırıyor -->
+        <form onsubmit="handleAnalysisSubmit(event, ${cityId})" class="space-y-3 stat-card p-4">
+
+            <div>
+                <label for="analysis-eco-indicator" class="block text-sm font-medium text-gray-700">Ekonomik Gösterge ($)</label>
+                <input type="number" step="1000" id="analysis-eco-indicator" value="${analysis?.economic_indicator || ''}" class="form-input" placeholder="örn: 15000000">
+            </div>
+
+            <div>
+                <label for="analysis-infra-score" class="block text-sm font-medium text-gray-700">Altyapı Skoru ( / 100)</label>
+                <input type="number" step="0.1" max="100" min="0" id="analysis-infra-score" value="${analysis?.infrastructure_score || ''}" class="form-input" placeholder="örn: 35.0">
+            </div>
+
+            <div>
+                <label for="analysis-labor-pct" class="block text-sm font-medium text-gray-700">Nitelikli İş Gücü (%)</label>
+                <input type="number" step="0.1" max="100" min="0" id="analysis-labor-pct" value="${analysis?.skilled_labor_availability_pct || ''}" class="form-input" placeholder="örn: 50.0">
+            </div>
+
+            <div>
+                <label for="analysis-risk-level" class="block text-sm font-medium text-gray-700">Genel Risk</label>
+                <select id="analysis-risk-level" class="form-input">
+                    ${riskOptions}
+                </select>
+            </div>
+
+            <div>
+                <label for="analysis-notes" class="block text-sm font-medium text-gray-700">Notlar</label>
+                <textarea id="analysis-notes" class="form-input" rows="3" placeholder="Analiz notları...">${analysis?.notes || ''}</textarea>
+            </div>
+
+            <!-- Kaydetme durumu için geri bildirim alanı -->
+            <div id="form-feedback" class="text-sm text-blue-600 hidden"></div>
+
+            <div class="flex justify-end space-x-3 pt-2">
+                <button type="button" onclick="loadCityAnalysisPanel(${cityId})" class="modal-button modal-button-cancel">
+                    İptal
+                </button>
+                <button type="submit" class="modal-button modal-button-submit">
+                    Kaydet
+                </button>
+            </div>
+        </form>
+    `;
+}
+
+
+function loadRisksPanel() {
+    console.log("loadRisksPanel yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const risks = AppData.operationalRisks || [];
+    const statusColors = { 'Aktif': 'text-red-600', 'İzleniyor': 'text-yellow-600', 'Çözüldü': 'text-green-600' }; const statusOptions = ['Aktif', 'İzleniyor', 'Çözüldü'];
+    panelContent.innerHTML = `
+        <div class="flex justify-between items-center mb-4">
+             <h2 class="text-xl font-bold text-gray-800">Operasyonel Riskler (${risks.length})</h2>
+             <div class="flex items-center space-x-2">
+                 <button onclick="exportToCsv('riskler.csv', AppData.operationalRisks || [])" class="download-csv-button">CSV İndir</button>
+                 <button onclick="showRiskModal()" class="modal-button modal-button-submit text-sm py-1.5">+ Yeni Risk Ekle</button>
+             </div>
+        </div>
+        <div class="space-y-3 max-h-[80vh] overflow-y-auto custom-scrollbar pr-1">
+            ${risks.length > 0 ? risks.map(risk => `
+                <div class="stat-card p-4" data-record-id="${risk.id}"> <!-- Vurgulama için ID -->
+                    <div class="flex justify-between items-start mb-2">
+                         <div>
+                             <p class="text-sm font-medium text-gray-800">${risk.risk_description}</p>
+                             <p class="text-xs text-gray-500">
+                                 Saha: <a href="#" onclick="navigateToPanel('overview', null); loadSiteDetailsPanel(${risk.site_id})" class="panel-link">${risk.site_name || '?'}</a> | Kat: ${risk.category} | Şid: ${risk.severity} | Rap: ${findEmployeeName(risk.reported_by)}
+                             </p>
+                         </div>
+                         <button onclick="deleteRisk(${risk.id})" class="text-red-500 hover:text-red-700 text-xs ml-2 flex-shrink-0 font-medium">Sil</button>
+                    </div>
+                    <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                         <span class="text-sm font-semibold ${statusColors[risk.status] || 'text-gray-500'}">${risk.status}</span>
+                         <div>
+                             <label for="status-select-${risk.id}" class="sr-only">Durumu Değiştir:</label>
+                             <select id="status-select-${risk.id}" onchange="updateRiskStatus(${risk.id}, this.value)" class="text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                ${statusOptions.map(opt => `<option value="${opt}" ${risk.status === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                             </select>
+                         </div>
+                    </div>
+                    ${risk.mitigation_plan ? `<p class="text-xs text-gray-600 mt-1 italic">Önlem: ${risk.mitigation_plan}</p>` : ''}
+                </div>`).join('') : '<p class="text-gray-500 text-center py-5">Aktif operasyonel risk bulunamadı.</p>'}
+        </div>`;
+}
+
+function loadEquipmentPanel() {
+    console.log("loadEquipmentPanel yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const equipmentData = AppData.equipment || [];
+    panelContent.innerHTML = `
+        <div class="flex justify-between items-center mb-4">
+             <h2 class="text-xl font-bold text-gray-800">Ekipman Yönetimi (${equipmentData.length})</h2>
+             <div class="flex items-center space-x-2">
+                <button onclick="exportToCsv('ekipmanlar.csv', AppData.equipment || [])" class="download-csv-button">CSV İndir</button>
+                <button onclick="showEquipmentModal()" class="modal-button modal-button-submit text-sm py-1.5">+ Yeni Ekipman Ekle</button>
+            </div>
+        </div>
+        <div class="space-y-4">
+             <div class="stat-card p-0 overflow-hidden">
+                 <h3 class="font-semibold text-gray-700 p-4 border-b">Tüm Ekipmanlar</h3>
+                 <ul class="divide-y divide-gray-200 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    ${equipmentData.length > 0 ? equipmentData.map(eq => `
+                        <li class="px-4 py-3 hover:bg-slate-50" data-record-id="${eq.id}"> <!-- Vurgulama için ID -->
+                            <div class="flex justify-between items-start">
+                                 <div>
+                                     <p class="text-sm font-medium text-gray-900">${eq.equipment_name} (${eq.equipment_code})</p>
+                                     <p class="text-xs text-gray-500">
+                                        ${eq.type} | <a href="#" onclick="navigateToPanel('overview', null); loadSiteDetailsPanel(${eq.site_id})" class="panel-link">${eq.site_name || '?'}</a> | Durum: <span class="font-semibold">${eq.status}</span>
+                                     </p>
+                                     <p class="text-xs text-gray-400">${eq.manufacturer || ''} ${eq.model || ''} | Sonraki Servis: ${eq.next_service_date ? new Date(eq.next_service_date).toLocaleDateString('tr-TR') : '-'}</p>
+                                 </div>
+                                 <div class="flex space-x-2 flex-shrink-0 ml-2 pt-1">
+                                     <button onclick='showEquipmentModal(${JSON.stringify(eq).replace(/'/g, "\\'")})' class="text-blue-600 hover:text-blue-800 text-xs font-medium">Düzenle</button>
+                                     <button onclick="deleteEquipment(${eq.id})" class="text-red-500 hover:text-red-700 text-xs font-medium">Sil</button>
+                                 </div>
+                            </div>
+                        </li>`).join('') : '<li class="px-4 py-4 text-center text-gray-500">Ekipman bulunamadı.</li>'}
+                 </ul>
+             </div>
+        </div>`;
+}
+
+function loadShipmentsPanel() {
+    console.log("loadShipmentsPanel yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+    const shipments = AppData.shipmentLogs || [];
+    const statusOptions = ['Yüklendi', 'Yolda', 'Teslim Edildi', 'Gecikti'];
+
+    panelContent.innerHTML = `
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800">Sevkiyat Yönetimi (${shipments.length})</h2>
+        <div class="flex items-center space-x-2">
+             <button onclick="exportToCsv('sevkiyatlar.csv', AppData.shipmentLogs || [])" class="download-csv-button">CSV İndir</button>
+             <button onclick="showShipmentModal()" class="modal-button modal-button-submit text-sm py-1.5">+ Yeni Sevkiyat Ekle</button>
+        </div>
+    </div>
+    <div class="stat-card bg-white overflow-hidden">
+        <div class="overflow-x-auto max-h-[80vh] overflow-y-auto custom-scrollbar">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50 sticky top-0">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saha</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Miktar</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Varış</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taşıyıcı</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    ${shipments.map(log => `
+                        <tr data-record-id="${log.id}"> <!-- Vurgulama için ID -->
+                            <td class="px-3 py-2 whitespace-nowrap text-sm">${log.shipment_date ? new Date(log.shipment_date).toLocaleDateString('tr-TR') : '-'}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm">
+                                <a href="#" onclick="navigateToPanel('overview', null); loadSiteDetailsPanel(${log.site_id})" class="panel-link">${log.site_name || '?'}</a>
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm font-medium">${parseFloat(log.quantity || 0).toLocaleString('tr-TR')} ${log.unit_abbreviation || '?'}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm">${log.destination_port_name || '?'}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm">${log.carrier_name || '?'}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm">
+                                <select onchange='updateShipmentStatus(${log.id}, this.value)' class="text-xs border border-gray-300 rounded px-1 py-0.5 bg-white hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full">
+                                    ${statusOptions.map(opt => `<option value="${opt}" ${log.status === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                                </select>
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-xs space-x-2">
+                                <button onclick='showShipmentModal(${JSON.stringify(log).replace(/'/g, "\\'")})' class="text-blue-600 hover:text-blue-800 font-medium">Düzenle</button>
+                                <button onclick="deleteShipment(${log.id})" class="text-red-500 hover:text-red-700 font-medium">Sil</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                    ${shipments.length === 0 ? `
+                        <tr>
+                            <td colspan="7" class="px-3 py-4 text-center text-gray-500">Sevkiyat kaydı bulunamadı.</td>
+                        </tr>` : ''}
+                </tbody>
+            </table>
+        </div>
+    </div>`;
+}
+
+// =========================================================
+// YENİ: TAHMİNLEME PANELİ (AKORDİYON MENÜ İLE)
+// =========================================================
+/**
+ * Operasyonel Tahmin Panelini Yükler (AKORDİYON MENÜ İLE GÜNCELLENDİ)
+ */
+/**
+ * Operasyonel Tahmin Panelini Yükler (GÜNCELLENDİ: ROI Modülü Eklendi)
+ */
+// =========================================================
+// YENİ: AYRIŞTIRILMIŞ TAHMİN PANELLERİ
+// =========================================================
+
+// 1. Üretim Projeksiyon Paneli
+// =========================================================
+// YENİ: GENEL TAHMİN AKORDİYON PANELİ (ANA DASHBOARD)
+// =========================================================
+function loadForecastPanel() {
+    console.log("loadForecastPanel (Genel Akordiyon) yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+
+    const sites = AppData.miningSites || []; 
+    // Eğer zenginlestirilmisVeriTarihi tanımlı değilse varsayılan bir değer ata
+    const veriTarihi = (typeof zenginlestirilmisVeriTarihi !== 'undefined') ? zenginlestirilmisVeriTarihi : 'Güncel';
+
+    panelContent.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Operasyonel Tahminler ve Simülasyon</h2>
+        <p class="text-sm text-gray-600 mb-4">
+            Tüm karar destek modülleri tek bir merkezde toplanmıştır. 
+            Veri Kaynağı: <code>coal.sql</code> (${veriTarihi}).
+        </p>
+
+        <div id="simulation-accordion" class="space-y-2">
+
+            <div class="stat-card overflow-hidden">
+                <button class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-700 bg-slate-50 hover:bg-slate-100">
+                    <span>1. Üretim Projeksiyonu (Senaryo Analizi)</span>
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div class="accordion-content p-4 border-t border-gray-200 hidden space-y-4">
+                    <p class="text-xs text-gray-500">Geçmiş verilere dayanarak gelecekteki üretim miktarını tahmin edin.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Maden Sahası:</label>
+                            <select id="prod-forecast-site-select" class="form-input text-sm !mb-0">
+                                <option value="">-- Saha Seçin --</option>
+                                ${sites.map(site => `<option value="${site.id}" data-capacity="${site.permitted_capacity_tons_per_day || 0}">${site.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Periyot:</label>
+                            <select id="prod-forecast-period-select" class="form-input text-sm !mb-0">
+                                <option value="6">Gelecek 6 Ay</option>
+                                <option value="12" selected>Gelecek 1 Yıl</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="stat-card p-3 bg-slate-50 border border-slate-200">
+                         <h4 class="text-sm font-medium text-gray-600 mb-2">Parametreler</h4>
+                         <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Ort. Verimlilik Değişimi (%):</label>
+                            <input type="number" step="0.1" id="prod-sim-efficiency-change" class="form-input !text-xs !py-1 !mb-0" placeholder="0">
+                         </div>
+                    </div>
+                    <button onclick="runProductionProjection()" class="modal-button modal-button-submit w-full mt-2">Projeksiyonu Çalıştır</button>
+                    <div class="chart-container-large mt-4">
+                        <canvas id="productionForecastChart"></canvas>
+                        <p id="production-forecast-nodata" class="text-center text-gray-500 py-10 hidden">Grafik bekleniyor...</p>
+                    </div>
+                    <div id="production-forecast-summary" class="text-sm text-gray-600 mt-2"></div>
+                </div>
+            </div>
+
+            <div class="stat-card overflow-hidden">
+                <button class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-700 bg-slate-50 hover:bg-slate-100">
+                    <span>2. Ekipman Bakım Tahmini ve Risk Analizi</span>
+                     <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div class="accordion-content p-4 border-t border-gray-200 hidden space-y-4">
+                     <p class="text-xs text-gray-500">Yaklaşan planlı bakımları ve arıza risklerini görüntüleyin.</p>
+                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tahmin Periyodu:</label>
+                        <select id="maint-forecast-period-select" onchange="displayMaintenanceForecast()" class="form-input text-sm w-full">
+                            <option value="6">Gelecek 6 Ay</option>
+                            <option value="12" selected>Gelecek 1 Yıl</option>
+                        </select>
+                    </div>
+                     <div class="stat-card p-4 mt-2">
+                         <h4 class="font-semibold text-gray-700 mb-2">Yaklaşan Planlı Bakımlar</h4>
+                         <ul id="upcoming-maintenance-list" class="divide-y divide-gray-200 max-h-40 overflow-y-auto custom-scrollbar">
+                             <li class="py-4 text-center text-gray-500">Periyot seçilince yüklenecek...</li>
+                         </ul>
+                     </div>
+                     <div class="stat-card p-4 mt-2">
+                        <h4 class="font-semibold text-gray-700 mb-2 text-red-600">Potansiyel Arıza Riski</h4>
+                        <ul id="failure-risk-list" class="divide-y divide-gray-200 max-h-40 overflow-y-auto custom-scrollbar">
+                             <li class="py-4 text-center text-gray-500">Hesaplanıyor...</li>
+                        </ul>
+                     </div>
+                </div>
+            </div>
+
+            <div class="stat-card overflow-hidden">
+                <button class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-700 bg-slate-50 hover:bg-slate-100">
+                    <span>3. Operasyonel Maliyet Simülasyonu (Monte Carlo)</span>
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div class="accordion-content p-4 border-t border-gray-200 hidden space-y-4">
+                     <div class="stat-card p-3 bg-slate-50 border border-slate-200 mb-3">
+                         <h4 class="text-sm font-medium text-gray-600 mb-2">Geçmiş Veri Analizi</h4>
+                         <div id="cost-analysis-summary" class="text-sm text-gray-700">Hesaplanıyor...</div>
+                     </div>
+                     <button onclick="runCostSimulation()" class="modal-button modal-button-submit w-full">Simülasyonu Çalıştır</button>
+                     <div class="stat-card p-4 mt-4">
+                        <ul id="cost-simulation-summary" class="divide-y divide-gray-200 mb-4 text-sm"></ul>
+                         <div class="chart-container-large">
+                             <canvas id="costSimulationChart"></canvas>
+                             <p id="cost-simulation-nodata" class="text-center text-gray-500 py-10 hidden">Veri yok.</p>
+                         </div>
+                     </div>
+                </div>
+            </div>
+
+            <div class="stat-card overflow-hidden">
+                 <button class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-700 bg-slate-50 hover:bg-slate-100">
+                     <span>4. Risk Etki Simülasyonu (Stres Testi)</span>
+                     <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                 </button>
+                 <div class="accordion-content p-4 border-t border-gray-200 hidden space-y-4">
+                    <div class="stat-card p-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Dahil Edilecek Aktif Riskler:</h4>
+                        <div id="risk-selection-list" class="max-h-40 overflow-y-auto custom-scrollbar border rounded p-2 space-y-2">
+                            <p class="text-center text-gray-500 py-3">Yükleniyor...</p>
+                        </div>
+                    </div>
+                    <button onclick="runRiskImpactSimulation()" class="modal-button modal-button-submit w-full mt-2 bg-orange-600 hover:bg-orange-700">Stres Testi Çalıştır</button>
+                    <div class="stat-card p-4 mt-4">
+                        <ul id="risk-impact-summary" class="divide-y divide-gray-200 text-sm"></ul>
+                    </div>
+                 </div>
+            </div>
+
+            <div class="stat-card overflow-hidden">
+                 <button class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-700 bg-slate-50 hover:bg-slate-100">
+                     <span>5. Yeni Saha ROI Analizörü</span>
+                     <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                 </button>
+                 <div class="accordion-content p-4 border-t border-gray-200 hidden space-y-4">
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Potansiyel Saha:</label>
+                            <select id="roi-reserve-select" class="form-input text-sm !mb-0">
+                                <option value="">Yükleniyor...</option>
+                            </select>
+                        </div>
+                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">İşletme Maliyeti ($/ton):</label>
+                            <input type="number" step="1" id="roi-op-cost" class="form-input text-sm !mb-0" placeholder="örn: 50">
+                         </div>
+                     </div>
+                     <div class="stat-card p-3 bg-slate-50 border border-slate-200 mt-2">
+                         <div id="roi-params-summary" class="text-xs text-gray-500 space-y-1"><p>Saha seçimi bekleniyor...</p></div>
+                     </div>
+                     <button onclick="runROISimulation()" class="modal-button modal-button-submit w-full mt-2 bg-indigo-600 hover:bg-indigo-700">ANALİZİ BAŞLAT</button>
+                     <div id="roi-results-card" class="stat-card p-6 text-center hidden mt-4">
+                         <h3 id="roi-decision-text" class="text-3xl font-extrabold text-gray-800">---</h3>
+                         <p id="roi-decision-subtitle" class="text-sm text-gray-500 mb-4">---</p>
+                         <h4 class="text-5xl font-extrabold text-indigo-600"><span id="roi-payback-years">0.0</span> Yıl</h4>
+                         <p class="font-semibold text-lg text-gray-700 mb-4">Geri Dönüş Süresi</p>
+                         <div id="roi-details" class="text-sm text-left border-t pt-3 space-y-1"></div>
+                     </div>
+                 </div>
+            </div>
+
+        </div>
+    `;
+
+    // Akordiyon Olay Dinleyicileri
+    document.querySelectorAll('.accordion-header').forEach(button => {
+        button.addEventListener('click', () => {
+            const content = button.nextElementSibling;
+            const icon = button.querySelector('svg');
+            const isActive = content.classList.contains('hidden'); 
+
+            document.querySelectorAll('.accordion-content').forEach(item => {
+                if (item !== content && !item.classList.contains('hidden')) {
+                    item.classList.add('hidden');
+                    item.previousElementSibling.classList.remove('active');
+                    item.previousElementSibling.querySelector('svg').classList.remove('rotate-180');
+                }
+            });
+
+            content.classList.toggle('hidden');
+            button.classList.toggle('active', isActive);
+            icon.classList.toggle('rotate-180', isActive);
+
+            if (isActive) {
+                const parentDiv = button.closest('.stat-card');
+                if (parentDiv.contains(document.getElementById('upcoming-maintenance-list'))) displayMaintenanceForecast();
+                else if (parentDiv.contains(document.getElementById('cost-analysis-summary'))) displayCostAnalysis();
+                else if (parentDiv.contains(document.getElementById('risk-selection-list'))) loadRiskSimulationData();
+                else if (parentDiv.contains(document.getElementById('roi-reserve-select'))) loadROIData();
+            }
+        });
+    });
+}
+// =========================================================
+// YENİ: TAHMİNLEME PANELİ YARDIMCI FONKSİYONLARI
+// =========================================================
+
+/**
+ * Monte Carlo için Standart Normal Dağılım (Box-Muller Transform)
+ * İki rastgele sayı üretir, biz birini kullanırız.
+ */
+function getGaussianRandom(mean = 0, stdDev = 1) {
+    // Math.random() [0, 1) aralığında değer üretir. 0 olmasını istemiyoruz.
+    let u1 = 0, u2 = 0;
+    while(u1 === 0) u1 = Math.random();
+    while(u2 === 0) u2 = Math.random();
+
+    // Box-Muller dönüşümü
+    const z1 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+
+    // Ortalamaya ve standart sapmaya göre ölçekle
+    return z1 * stdDev + mean;
+}
+
+/**
+ * Gelişmiş Üretim Projeksiyonunu Çalıştırır
+ */
+/**
+ * Gelişmiş Üretim Projeksiyonunu Çalıştırır (DÜZELTİLMİŞ HALİ)
+ */
+function runProductionProjection() {
+    console.log("Gelişmiş üretim projeksiyonu çalıştırılıyor...");
+    const chartCanvas = document.getElementById('productionForecastChart');
+    const noDataP = document.getElementById('production-forecast-nodata');
+    const summaryP = document.getElementById('production-forecast-summary');
+    if (chartInstances.productionForecast) {
+        chartInstances.productionForecast.destroy();
+        delete chartInstances.productionForecast;
+    }
+    chartCanvas.style.display = 'none'; // Grafiği gizle
+    noDataP.textContent = 'Projeksiyon hesaplanıyor...';
+    noDataP.style.display = 'block'; // 'Hesaplanıyor' mesajını göster
+    summaryP.textContent = '';
+
+    // Gecikme ekleyerek UI'ın güncellenmesine izin ver
+    setTimeout(() => {
+        try {
+            const siteSelect = document.getElementById('prod-forecast-site-select');
+            const siteId = siteSelect.value;
+            const periodMonths = parseInt(document.getElementById('prod-forecast-period-select').value);
+            const efficiencyChange = parseFloat(document.getElementById('prod-sim-efficiency-change').value) || 0; // % değişim
+            const selectedOption = siteSelect.options[siteSelect.selectedIndex];
+            const siteCapacity = parseFloat(selectedOption.getAttribute('data-capacity') || 0); // Günlük kapasite
+
+            if (!siteId) { throw new Error("Lütfen bir maden sahası seçin."); }
+
+            // 1. İlgili Sahanın Geçmiş Üretim Verilerini Çek (AppData'dan)
+            const allLogs = (AppData.productionLogs || [])
+                                .filter(log => log.site_id == siteId && log.log_datetime);
+
+            // 2. Aylık Verileri Topla (Hata kontrolü için)
+            const monthlyData = {};
+            allLogs.forEach(log => {
+                try {
+                    const date = new Date(log.log_datetime);
+                    // Saat dilimi sorunlarını önlemek için UTC tarih kullan
+                    const monthKey = `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+                    if (!monthlyData[monthKey]) monthlyData[monthKey] = { totalProduced: 0 };
+                    monthlyData[monthKey].totalProduced += parseFloat(log.produced_amount || 0);
+                } catch(e) { console.warn("Tarih parse hatası:", log.log_datetime, e); }
+            });
+
+            const sortedMonths = Object.keys(monthlyData).sort();
+
+            // !!!!! MANTIK DÜZELTMESİ BURADA !!!!!
+            // 'allLogs.length < 3' (kayıt sayısı) yerine 'sortedMonths.length < 3' (ay sayısı) kontrolü yapılıyor.
+            if (sortedMonths.length < 3) { 
+                console.warn(`Projeksiyon hatası: Site ID ${siteId} için sadece ${sortedMonths.length} ay veri bulundu. Gereken: 3.`);
+                throw new Error(`Projeksiyon için yeterli geçmiş veri (en az 3 ay) bulunamadı. (Bulunan: ${sortedMonths.length} ay)`); 
+            }
+            // !!!!! DÜZELTME SONU !!!!!
+
+
+            // 3. Ortalamaları Hesapla
+            const historicalMonthlyProduction = sortedMonths.map(m => monthlyData[m].totalProduced);
+
+            // Projeksiyon için son X ayın ortalamasını al
+            const monthsForAvg = Math.min(sortedMonths.length, 6); // Son 6 ayın ortalamasını alalım
+            const lastNProduction = historicalMonthlyProduction.slice(-monthsForAvg);
+            const avgMonthlyProduction = lastNProduction.reduce((sum, val) => sum + val, 0) / monthsForAvg;
+
+            // Verimlilik Değişimini Uygula
+            const simulationAvgMonthlyProduction = avgMonthlyProduction * (1 + (efficiencyChange / 100));
+
+            console.log(`Aylık ortalama üretim (son ${monthsForAvg} ay): ${avgMonthlyProduction.toFixed(0)} t`);
+            console.log(`Simülasyon aylık üretim (${efficiencyChange}% değişim): ${simulationAvgMonthlyProduction.toFixed(0)} t`);
+
+            // 4. Gelecek Verisini Oluştur
+            const projectedData = [];
+            const projectedMonths = [];
+            // Son bilinen aydan başla
+            const lastKnownMonthParts = sortedMonths[sortedMonths.length - 1].split('-');
+            let lastDate = new Date(Date.UTC(lastKnownMonthParts[0], lastKnownMonthParts[1] - 1, 1)); // Ayın 1'i (UTC)
+
+            for (let i = 1; i <= periodMonths; i++) {
+                lastDate.setUTCMonth(lastDate.getUTCMonth() + 1); // Bir sonraki aya geç (UTC)
+                const monthKey = `${lastDate.getUTCFullYear()}-${(lastDate.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+                projectedMonths.push(monthKey);
+                projectedData.push(simulationAvgMonthlyProduction);
+            }
+
+            // 5. Grafiği Çiz
+            const ctx = chartCanvas;
+            if (!ctx) return;
+
+            const allLabels = [...sortedMonths, ...projectedMonths];
+            const pastDataPoints = historicalMonthlyProduction;
+            const futureDataPoints = projectedData;
+
+            // Kapasite verisi (Aylık)
+            const monthlyCapacity = siteCapacity * 30.4375; // Ortalama ay gün sayısı
+            const capacityData = Array(allLabels.length).fill(monthlyCapacity);
+
+            chartCanvas.style.display = 'block'; // Grafiği göster
+            noDataP.style.display = 'none'; // 'Veri yok' mesajını gizle
+
+            chartInstances.productionForecast = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: allLabels,
+                    datasets: [
+                        {
+                            label: 'Geçmiş Üretim (Aylık)',
+                            data: [...pastDataPoints, ...Array(futureDataPoints.length).fill(null)],
+                            borderColor: 'rgba(59, 130, 246, 1)', // Mavi
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.1,
+                            fill: true,
+                            order: 2 // Çizgi en üstte olsun
+                        },
+                        {
+                            label: `Tahmini Üretim (${efficiencyChange >= 0 ? '+' : ''}${efficiencyChange}%)`,
+                            data: [
+                                ...Array(pastDataPoints.length - 1).fill(null),
+                                pastDataPoints[pastDataPoints.length - 1], // Son noktayı birleştir
+                                ...futureDataPoints
+                            ],
+                            borderColor: efficiencyChange >= 0 ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)', // Yeşil veya Kırmızı
+                            backgroundColor: 'transparent', // Dolgu yok
+                            borderWidth: 3,
+                            borderDash: [5, 5],
+                            tension: 0.1,
+                            fill: false,
+                            order: 1 // Tahmin çizgisi altta
+                        },
+                        { // YENİ: Kapasite Limiti Çizgisi
+                            label: 'Aylık Kapasite Limiti',
+                            data: capacityData,
+                            borderColor: 'rgba(255, 159, 64, 0.8)', // Turuncu
+                            borderWidth: 1.5,
+                            borderDash: [10, 10], // Daha belirgin kesikli çizgi
+                            pointRadius: 0, // Noktaları gösterme
+                            fill: false,
+                            order: 0 // En altta
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: { callback: (value) => `${(value / 1000).toLocaleString('tr-TR')}k t` },
+                            title: { display: true, text: 'Aylık Üretim Miktarı (Ton)' }
+                        },
+                        x: { title: { display: true, text: 'Ay' } }
+                    },
+                    plugins: {
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: (context) => {
+                                    const label = context.dataset.label || '';
+                                    const value = parseFloat(context.raw || 0);
+                                    if (label === 'Aylık Kapasite Limiti') {
+                                        return `${label}: ${value.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} t`;
+                                    }
+                                    return `${label}: ${value.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} t`;
+                                }
+                            }
+                        },
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+
+            const totalProjected = futureDataPoints.reduce((s,v)=> s+v, 0);
+            summaryP.textContent = `Tahmini ${periodMonths} aylık toplam üretim: ${totalProjected.toLocaleString('tr-TR', {maximumFractionDigits: 0})} ton.`;
+            showDataStatusUpdate("Üretim projeksiyonu başarıyla oluşturuldu.");
+
+        } catch (error) {
+            console.error("Üretim Projeksiyonu Hatası:", error);
+            showDataStatusUpdate(`Üretim Projeksiyonu Hatası: ${error.message}`, true);
+            noDataP.textContent = `Hata: ${error.message}`; // This is what the user sees
+            noDataP.style.display = 'block';
+            summaryP.textContent = '';
+        }
+    }, 100); // UI güncellenmesi için 100ms gecikme
+}
+
+
+
+/**
+ * Ekipman Bakım Tahmini Sekmesindeki verileri gösterir.
+ */
+function displayMaintenanceForecast() {
+    console.log("Bakım tahmini verileri hazırlanıyor...");
+    const listUl = document.getElementById('upcoming-maintenance-list');
+    const riskUl = document.getElementById('failure-risk-list');
+    const periodMonths = parseInt(document.getElementById('maint-forecast-period-select').value);
+    listUl.innerHTML = '<li class="py-4 text-center text-gray-500">Yükleniyor...</li>';
+    riskUl.innerHTML = '<li class="py-4 text-center text-gray-500">Hesaplanıyor...</li>';
+
+    const equipment = AppData.equipment || [];
+    const maintenanceLogs = AppData.maintenanceLogs || [];
+
+    // 1. Yaklaşan Planlı Bakımlar
+    const today = new Date();
+    // Tarihleri manipüle ederken saat dilimi sorunlarından kaçınmak için gece yarısı kullan
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const futureDate = new Date(todayMidnight);
+    futureDate.setMonth(futureDate.getMonth() + periodMonths);
+
+    const upcomingMaintenance = equipment.filter(eq => {
+        try {
+            if (!eq.next_service_date) return false;
+            // next_service_date'i de gece yarısı olarak al
+            const nextServiceParts = eq.next_service_date.split('-');
+            const nextServiceDate = new Date(nextServiceParts[0], nextServiceParts[1] - 1, nextServiceParts[2]);
+            return nextServiceDate >= todayMidnight && nextServiceDate <= futureDate;
+        } catch(e) { console.warn("Bakım tarihi parse hatası:", eq.next_service_date, e); return false; }
+    }).sort((a,b) => new Date(a.next_service_date) - new Date(b.next_service_date));
+
+    if (upcomingMaintenance.length > 0) {
+        listUl.innerHTML = upcomingMaintenance.map(eq => `
+            <li class="py-2 px-1 hover:bg-slate-50 flex justify-between items-center" data-record-id="${eq.id}">
+                <span>
+                    <a href="#" onclick="navigateToPanel('equipment', ${eq.id})" class="panel-link">${eq.equipment_name}</a>
+                    <span class="text-xs text-gray-500"> (${eq.site_name || '?'})</span>
+                </span>
+                <span class="text-sm font-medium text-orange-600">${new Date(eq.next_service_date).toLocaleDateString('tr-TR')}</span>
+            </li>`).join('');
+    } else {
+        listUl.innerHTML = `<li class="py-4 text-center text-gray-500">Önümüzdeki ${periodMonths} ay içinde planlı bakım yok.</li>`;
+    }
+
+    // 2. Potansiyel Arıza Riski (Basit Model)
+    const unplannedByType = {}; // { 'Truck': { count: 5, totalEquip: 10 }, 'Excavator': ... }
+    const equipmentCountByType = {};
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    equipment.forEach(eq => {
+        if (!eq.type) return;
+        equipmentCountByType[eq.type] = (equipmentCountByType[eq.type] || 0) + 1;
+        if (!unplannedByType[eq.type]) {
+             unplannedByType[eq.type] = { count: 0, totalDowntime: 0, totalCost: 0 };
+        }
+    });
+
+    maintenanceLogs.forEach(log => {
+        try {
+            const maintDate = new Date(log.maintenance_date);
+            // Sadece son 1 yıldaki plansız arızaları dikkate al
+            if (log.maintenance_type === 'Unplanned' && maintDate >= oneYearAgo) {
+                const eq = equipment.find(e => e.id === log.equipment_id);
+                if (eq && eq.type && unplannedByType[eq.type]) {
+                    unplannedByType[eq.type].count++;
+                    unplannedByType[eq.type].totalDowntime += parseInt(log.downtime_minutes || 0);
+                    unplannedByType[eq.type].totalCost += parseFloat(log.cost || 0);
+                }
+            }
+        } catch (e) { console.warn("Bakım log tarihi hatası:", log.maintenance_date, e); }
+    });
+
+    const riskData = Object.keys(unplannedByType)
+        .map(type => {
+            const data = unplannedByType[type];
+            const totalEquip = equipmentCountByType[type] || 0;
+            // Yıllık Arıza Oranı: Son 1 yıldaki arıza sayısı / O tipteki toplam ekipman sayısı
+            const failureRate = totalEquip > 0 ? (data.count / totalEquip) : 0;
+            const avgDowntime = data.count > 0 ? (data.totalDowntime / data.count / 60) : 0; // Saat
+            const avgCost = data.count > 0 ? (data.totalCost / data.count) : 0;
+            return { type, failureRate, avgDowntime, avgCost, count: data.count, totalEquip: totalEquip };
+        })
+        .filter(d => d.totalEquip > 0) // Sadece envanterde olan tipleri göster
+        .sort((a, b) => b.failureRate - a.failureRate || b.count - a.count); // Önce orana sonra sayıya göre sırala
+
+     if (riskData.length > 0) {
+        riskUl.innerHTML = riskData.map(risk => `
+            <li class="py-3 px-1 hover:bg-slate-50">
+                 <p class="text-md font-medium text-gray-900">${risk.type} (${risk.totalEquip} adet)</p>
+                 <div class="flex flex-col sm:flex-row justify-between text-xs mt-1 space-y-1 sm:space-y-0 text-gray-600">
+                    <span>Yıllık Arıza/Ekipman: <strong class="${risk.failureRate > 0.5 ? 'text-red-600' : 'text-orange-600'}">${risk.failureRate.toFixed(2)}</strong> (${risk.count} arıza)</span>
+                    <span>Ort. Kayıp Zaman: <strong>${risk.avgDowntime.toFixed(1)} sa</strong></span>
+                    <span>Ort. Maliyet/Arıza: <strong>$${risk.avgCost.toLocaleString('tr-TR', {maximumFractionDigits: 0})}</strong></span>
+                 </div>
+            </li>`).join('');
+    } else {
+        riskUl.innerHTML = `<li class="py-4 text-center text-gray-500">Geçmiş plansız arıza kaydı bulunamadı veya ekipman tipi eşleştirilemedi.</li>`;
+    }
+}
+
+
+/**
+ * Maliyet Simülasyonu Sekmesindeki geçmiş veri analizini gösterir.
+ */
+function displayCostAnalysis() {
+     console.log("Geçmiş maliyet analizi verileri hazırlanıyor...");
+     const summaryDiv = document.getElementById('cost-analysis-summary');
+     summaryDiv.innerHTML = 'Hesaplanıyor...';
+
+     const maintenanceLogs = AppData.maintenanceLogs || [];
+     const shipmentLogs = AppData.shipmentLogs || [];
+
+     const twelveMonthsAgo = new Date();
+     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+     const monthlyCosts = {};
+
+     const processLogs = (logs, dateField, costField) => {
+         logs.forEach(log => {
+             try {
+                 const date = new Date(log[dateField]);
+                 if (date >= twelveMonthsAgo) {
+                     const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                     monthlyCosts[monthKey] = (monthlyCosts[monthKey] || 0) + parseFloat(log[costField] || 0);
+                 }
+             } catch(e) {}
+         });
+     };
+
+     processLogs(maintenanceLogs, 'maintenance_date', 'cost');
+     processLogs(shipmentLogs, 'shipment_date', 'cost');
+     const costValues = Object.values(monthlyCosts);
+
+     if (costValues.length < 3) {
+         summaryDiv.innerHTML = '<p class="text-red-500">Simülasyon için yeterli geçmiş aylık maliyet verisi yok (en az 3 ay).</p>';
+         return; // Fonksiyon burada durmalı
+     }
+
+     const totalCost = costValues.reduce((sum, val) => sum + val, 0);
+     const avgMonthlyCost = totalCost / costValues.length;
+     const mean = avgMonthlyCost;
+     const variance = costValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (costValues.length -1);
+     const stdDev = Math.sqrt(variance);
+
+     // Sonucu global değişkene sakla (simülasyon için)
+     window.costAnalysisResult = { avg: avgMonthlyCost, stdDev: stdDev, count: costValues.length };
+
+     summaryDiv.innerHTML = `
+         <p>Ortalama Aylık Maliyet: <strong class="text-blue-600">$${avgMonthlyCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</strong></p>
+         <p>Aylık Maliyet Std. Sapması: <strong class="text-orange-600">$${stdDev.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</strong></p>
+         <p class="text-xs text-gray-500 mt-1">(${costValues.length} aylık veri baz alınmıştır)</p>
+     `;
+}
+
+
+/**
+ * Operasyonel Maliyet Simülasyonunu Çalıştırır (Monte Carlo)
+ * @param {number} [additionalRiskCost=0] - Risk simülasyonundan gelen ek maliyet (yıllık).
+ * @returns {object|null} - Simülasyon sonuçlarını içeren obje (pessimistic90, median50, optimistic10, allSimulationTotals) veya hata durumunda null.
+ */
+function runCostSimulation(additionalRiskCost = 0) {
+    console.log(`Maliyet simülasyonu (Monte Carlo) başlıyor... Ek Risk Maliyeti: ${additionalRiskCost}`);
+    const chartCanvas = document.getElementById('costSimulationChart');
+    const noDataP = document.getElementById('cost-simulation-nodata');
+    const summaryUl = document.getElementById('cost-simulation-summary');
+    if (chartInstances.costSimulation) {
+        chartInstances.costSimulation.destroy();
+        delete chartInstances.costSimulation;
+    }
+    chartCanvas.style.display = 'none';
+    noDataP.style.display = 'block'; noDataP.textContent = 'Simülasyon çalıştırılıyor...';
+    summaryUl.innerHTML = '<li class="py-2 text-center text-gray-500">Simülasyon çalıştırılıyor...</li>';
+
+    // Simülasyonu ana thread'i bloklamamak için setTimeout içine al
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            try {
+                // 1. Önceki analizden ortalama ve std sapmayı al
+                if (!window.costAnalysisResult || typeof window.costAnalysisResult.avg !== 'number' || typeof window.costAnalysisResult.stdDev !== 'number') {
+                    throw new Error("Önce geçmiş maliyet analizi verileri hesaplanmalı veya geçerli değil.");
+                }
+                const avgMonthlyCost = window.costAnalysisResult.avg;
+                const stdDevMonthlyCost = window.costAnalysisResult.stdDev;
+                const dataCount = window.costAnalysisResult.count;
+
+                if (isNaN(avgMonthlyCost) || isNaN(stdDevMonthlyCost) || stdDevMonthlyCost < 0) {
+                    throw new Error("Geçmiş maliyet verileriyle geçerli ortalama veya standart sapma hesaplanamadı.");
+                }
+                 // Eğer standart sapma 0 ise (tüm aylar aynı maliyet), simülasyon anlamsız olur, küçük bir değer ata.
+                 const effectiveStdDev = stdDevMonthlyCost === 0 ? avgMonthlyCost * 0.01 : stdDevMonthlyCost; // Ortalamanın %1'i kadar yapay dalgalanma
+
+                // 2. Simülasyonu Çalıştır
+                const numSimulations = 1000;
+                const numMonths = 12; // 1 Yıllık
+                let allSimulationTotals = [];
+
+                for (let i = 0; i < numSimulations; i++) {
+                    let totalSimCost = 0;
+                    for (let m = 0; m < numMonths; m++) {
+                        const randomMonthlyCost = getGaussianRandom(avgMonthlyCost, effectiveStdDev);
+                        totalSimCost += (randomMonthlyCost < 0 ? 0 : randomMonthlyCost); // Maliyet negatif olamaz
+                    }
+                    // Yıllık toplama ek risk maliyetini ekle
+                    totalSimCost += additionalRiskCost;
+                    allSimulationTotals.push(totalSimCost);
+                }
+
+                // 3. Sonuçları Analiz Et
+                allSimulationTotals.sort((a, b) => a - b);
+                const getPercentile = (p) => allSimulationTotals[Math.floor(p * (numSimulations - 1))];
+                const pessimistic90 = getPercentile(0.90);
+                const median50 = getPercentile(0.50);
+                const optimistic10 = getPercentile(0.10);
+
+                const results = { pessimistic90, median50, optimistic10, allSimulationTotals };
+
+                // Eğer bu çağrı risk simülasyonu tarafından yapılmadıysa, UI'ı güncelle
+                if (additionalRiskCost === 0) {
+                    // 4. Özeti Göster
+                    summaryUl.innerHTML = `
+                        <li class="py-1.5 flex justify-between"><span>Ortalama (%50) Senaryo:</span> <strong class="text-lg text-blue-600">$${median50.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</strong></li>
+                        <li class="py-1.5 flex justify-between"><span>Kötümser (%90) Senaryo:</span> <strong class="text-lg text-red-600">$${pessimistic90.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</strong></li>
+                        <li class="py-1.5 flex justify-between"><span>İyimser (%10) Senaryo:</span> <strong class="text-lg text-green-600">$${optimistic10.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</strong></li>
+                         <p class="text-xs text-gray-500 mt-1">(${dataCount} aylık geçmiş veri ve 1000 simülasyon senaryosuna göre)</p>
+                    `;
+
+                    // 5. Grafiği Çiz (Histogram)
+                    const ctx = chartCanvas;
+                    if (!ctx) return resolve(results); // Sonuçları döndür
+                    chartCanvas.style.display = 'block';
+                    noDataP.style.display = 'none';
+
+                    const minCost = optimistic10 * 0.8; // Grafiği biraz genişlet
+                    const maxCost = pessimistic90 * 1.2;
+                    const numBins = 20;
+                    const binSize = (maxCost - minCost) / numBins;
+                    const bins = Array(numBins).fill(0);
+                    const labels = Array(numBins).fill(0).map((_, i) => {
+                        const start = minCost + i * binSize; const end = start + binSize;
+                        return `$${(start/1000000).toFixed(1)}M - $${(end/1000000).toFixed(1)}M`;
+                    });
+
+                    allSimulationTotals.forEach(cost => {
+                        let binIndex = Math.floor((cost - minCost) / binSize);
+                        if (binIndex >= numBins) binIndex = numBins - 1; if (binIndex < 0) binIndex = 0;
+                        bins[binIndex]++;
+                    });
+
+                    chartInstances.costSimulation = new Chart(ctx, {
+                        type: 'bar', data: { labels: labels, datasets: [{ label: 'Senaryo Sayısı', data: bins, backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: 'rgba(59, 130, 246, 1)', borderWidth: 1 }] },
+                        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: 'Senaryo Sayısı' } }, x: { title: { display: true, text: 'Toplam 1 Yıllık Maliyet Aralığı' } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (tooltipItems) => { return tooltipItems[0].label; }, label: (context) => ` Senaryo: ${context.raw}` } } } }
+                    });
+
+                    showDataStatusUpdate("Maliyet simülasyonu tamamlandı!");
+                }
+                resolve(results); // Sonuçları döndür
+
+            } catch (error) {
+                console.error("Maliyet Simülasyonu Hatası:", error);
+                if (additionalRiskCost === 0) { // Sadece ana simülasyon hatasını UI'da göster
+                    showDataStatusUpdate(`Maliyet Simülasyonu Hatası: ${error.message}`, true);
+                    noDataP.textContent = `Hata: ${error.message}`;
+                    noDataP.style.display = 'block';
+                    summaryUl.innerHTML = `<li class="py-2 text-center text-red-500">Hata oluştu.</li>`;
+                }
+                resolve(null); // Hata durumunda null döndür
+            }
+        }, 100); // 100ms gecikme
+    });
+}
+
+
+/**
+ * Risk Simülasyonu sekmesi için aktif riskleri listeler.
+ */
+function loadRiskSimulationData() {
+    console.log("Risk simülasyonu verileri yükleniyor...");
+    const riskListDiv = document.getElementById('risk-selection-list');
+    riskListDiv.innerHTML = '<p class="text-center text-gray-500 py-3">Yükleniyor...</p>';
+
+    const activeRisks = (AppData.operationalRisks || []).filter(r => r.status === 'Aktif');
+
+    if (activeRisks.length > 0) {
+        riskListDiv.innerHTML = activeRisks.map(risk => `
+            <div class="flex items-center justify-between py-1 px-2 border-b last:border-b-0">
+                <label for="risk-checkbox-${risk.id}" class="text-sm text-gray-700 cursor-pointer flex-grow mr-2">
+                    <input type="checkbox" id="risk-checkbox-${risk.id}" value="${risk.id}" class="mr-2 risk-sim-checkbox">
+                    ${risk.risk_description.substring(0, 50)}...
+                    <span class="text-xs text-gray-400">(${risk.site_name || '?'}, ${risk.severity})</span>
+                </label>
+            </div>
+        `).join('');
+    } else {
+        riskListDiv.innerHTML = '<p class="text-center text-gray-500 py-3">Simüle edilecek aktif risk bulunamadı.</p>';
+    }
+}
+
+/**
+ * Risk Etki Simülasyonunu (Stres Testi) Çalıştırır
+ */
+async function runRiskImpactSimulation() {
+    console.log("Risk etki simülasyonu (Stres Testi) başlıyor...");
+    const summaryUl = document.getElementById('risk-impact-summary');
+    summaryUl.innerHTML = '<li class="py-2 text-center text-gray-500">Stres testi çalıştırılıyor...</li>';
+
+    // 1. Seçili Risk ID'lerini Al
+    const selectedRiskIds = Array.from(document.querySelectorAll('.risk-sim-checkbox:checked')).map(cb => parseInt(cb.value));
+
+    if (selectedRiskIds.length === 0) {
+        showDataStatusUpdate("Lütfen stres testine dahil etmek için en az bir risk seçin.", true);
+        summaryUl.innerHTML = '<li class="py-2 text-center text-orange-600">Lütfen en az bir risk seçin.</li>';
+        return;
+    }
+
+    // 2. Seçili Risklerin Potansiyel Finansal Etkisini Hesapla (Varsayımsal)
+    let totalEstimatedRiskImpact = 0;
+    const avgSafetyCost = (AppData.safetyIncidents || []).reduce((acc, inc) => acc + parseFloat(inc.cost_estimate || 0), 0) / (AppData.safetyIncidents?.length || 1);
+    const avgEnvFine = (AppData.environmentalIncidents || []).reduce((acc, inc) => acc + parseFloat(inc.fine_amount || 0), 0) / (AppData.environmentalIncidents?.length || 1);
+    const avgDowntimeCost = 5000; // Varsayımsal: Kayıp zamanın saatlik maliyeti (üretim kaybı vb.)
+
+    selectedRiskIds.forEach(riskId => {
+        const risk = AppData.operationalRisks.find(r => r.id == riskId);
+        if (!risk) return;
+
+        // Çok Basit Etki Tahmini: Kategoriye ve ciddiyete göre varsayımsal maliyet
+        let impact = 0;
+        if (risk.category?.toLowerCase().includes('güvenlik') || risk.category?.toLowerCase().includes('safety')) {
+            impact = avgSafetyCost || 10000; // Ortalama yoksa 10k$ varsay
+             // Kayıp zaman maliyetini ekle (varsa)
+             const relatedIncident = AppData.safetyIncidents?.find(inc => inc.description?.includes(risk.risk_description.substring(0,10))); // Basit eşleştirme
+             if(relatedIncident?.lost_time_hours) impact += relatedIncident.lost_time_hours * avgDowntimeCost;
+
+        } else if (risk.category?.toLowerCase().includes('çevre') || risk.category?.toLowerCase().includes('environmental')) {
+            impact = avgEnvFine || 50000; // Ortalama yoksa 50k$ varsay
+        } else if (risk.category?.toLowerCase().includes('ekipman') || risk.category?.toLowerCase().includes('equipment')) {
+            // Ortalama plansız bakım maliyeti kullanılabilir
+             const unplannedCosts = (AppData.maintenanceLogs || []).filter(l => l.maintenance_type === 'Unplanned').map(l => parseFloat(l.cost || 0));
+             const avgUnplannedCost = unplannedCosts.length > 0 ? unplannedCosts.reduce((s,c)=>s+c,0) / unplannedCosts.length : 15000; // Varsayılan 15k$
+             impact = avgUnplannedCost;
+        } else {
+             impact = 20000; // Diğer kategoriler için varsayılan 20k$
+        }
+
+        // Ciddiyete göre çarpan uygula
+        if (risk.severity === 'Kritik') impact *= 3;
+        else if (risk.severity === 'Yüksek') impact *= 1.5;
+
+        totalEstimatedRiskImpact += impact;
+    });
+
+    console.log(`Seçili ${selectedRiskIds.length} riskin toplam tahmini yıllık etkisi: $${totalEstimatedRiskImpact.toLocaleString()}`);
+
+    // 3. Temel Maliyet Simülasyonunu Çalıştır (Eğer daha önce çalıştırılmadıysa)
+    if (!window.costAnalysisResult) {
+        displayCostAnalysis(); // Önce analizi yap
+        if (!window.costAnalysisResult) {
+             summaryUl.innerHTML = '<li class="py-2 text-center text-red-500">Temel maliyet analizi yapılamadı.</li>';
+             return;
+        }
+    }
+
+    // 4. Maliyet Simülasyonunu Ek Risk Maliyeti ile Tekrar Çalıştır
+    const riskAdjustedResults = await runCostSimulation(totalEstimatedRiskImpact);
+
+    // 5. Sonuçları Göster
+    if (riskAdjustedResults) {
+        summaryUl.innerHTML = `
+            <li class="py-1.5 flex justify-between">
+                 <span>Riskli Ort. (%50) Senaryo:</span>
+                 <strong class="text-lg text-blue-600">$${riskAdjustedResults.median50.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</strong>
+            </li>
+            <li class="py-1.5 flex justify-between">
+                 <span>Riskli Kötümser (%90) Senaryo:</span>
+                 <strong class="text-lg text-red-600">$${riskAdjustedResults.pessimistic90.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</strong>
+            </li>
+            <li class="py-1.5 flex justify-between">
+                 <span>Riskli İyimser (%10) Senaryo:</span>
+                 <strong class="text-lg text-green-600">$${riskAdjustedResults.optimistic10.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</strong>
+            </li>
+            <p class="text-xs text-gray-500 mt-2">(${selectedRiskIds.length} riskin tahmini $${totalEstimatedRiskImpact.toLocaleString('tr-TR', {maximumFractionDigits: 0})} etkisi dahil edilmiştir)</p>
+        `;
+        showDataStatusUpdate("Risk etki simülasyonu (Stres Testi) tamamlandı.");
+    } else {
+         summaryUl.innerHTML = '<li class="py-2 text-center text-red-500">Riskli maliyet simülasyonu çalıştırılırken hata oluştu.</li>';
+         showDataStatusUpdate("Riskli maliyet simülasyonu hatası!", true);
+    }
+}
+
+        /**
+         * YENİ: ROI Analizörü için Gerekli Verileri (Potansiyel Rezervler) Yükler
+         */
+        function loadROIData() {
+            console.log("ROI Analizörü için potansiyel rezervler yükleniyor...");
+            const select = document.getElementById('roi-reserve-select');
+            const summary = document.getElementById('roi-params-summary');
+            select.innerHTML = '<option value="">-- Saha ve Mineral Seçin --</option>';
+            
+            // Aktif sahaları değil, potansiyel sahaları kullan
+            const potentials = AppData.potentialReserves || [];
+            
+            // Aktif sahaların şehir ID'lerini bir sete al
+            const activeSiteCityIds = new Set((AppData.miningSites || []).map(s => s.city_id));
+            
+            // Sadece henüz aktif bir madenin olmadığı potansiyel şehirleri filtrele
+            const availablePotentials = potentials.filter(p => !activeSiteCityIds.has(p.city_id));
+
+            if (availablePotentials.length === 0) {
+                select.innerHTML = '<option value="">Uygun potansiyel rezerv bulunamadı.</option>';
+                return;
+            }
+
+            availablePotentials.forEach(pot => {
+                // Veriyi `option` içinde saklamak için JSON.stringify kullanıyoruz
+                select.innerHTML += `<option value='${JSON.stringify(pot)}'>
+                    ${pot.city_name || findCityName(pot.city_id)} - ${pot.mineral_name || findMineralName(pot.mineral_id)}
+                </option>`;
+            });
+
+            // Seçim değiştiğinde özet panelini güncelle
+            select.onchange = () => {
+                try {
+                    if (!select.value) {
+                         summary.innerHTML = '<p>Lütfen bir saha seçin...</p>';
+                         return;
+                    }
+                    const selectedData = JSON.parse(select.value);
+                    // Mineral ID'yi Piyasa Verisi anahtarına çevir (1:iron_ore, 2:gold, 3:bauxite, 4:coal)
+                    const mineralKeyMap = { 1: 'iron_ore', 2: 'gold', 3: 'bauxite', 4: 'coal' };
+                    const mineralKey = mineralKeyMap[selectedData.mineral_id] || 'default';
+                    
+                    const marketPrice = MarketData.commodities?.[mineralKey]?.price || 0;
+                    if (marketPrice === 0) console.warn(`Piyasa fiyatı bulunamadı: ${mineralKey}`);
+
+                    const setupCost = calculateSetupCost(selectedData.city_id, selectedData.mineral_id);
+                    
+                    summary.innerHTML = `
+                        <p><strong>Kurulum Maliyeti (Tahmini):</strong> $${(setupCost / 1000000).toLocaleString('tr-TR', {maximumFractionDigits: 1})} Milyon</p>
+                        <p><strong>Güncel Piyasa Fiyatı (${selectedData.mineral_name}):</strong> $${marketPrice.toLocaleString('tr-TR')} / ${selectedData.unit_abbreviation || 'unit'}</p>
+                        <p><strong>Toplam Tahmini Rezerv:</strong> ${parseFloat(selectedData.estimated_amount).toLocaleString('tr-TR')} ${selectedData.unit_abbreviation || 'units'}</p>
+                    `;
+                } catch(e) {
+                    console.error("ROI Parametre Hatası:", e);
+                    summary.innerHTML = '<p class="text-red-500">Parametreler hesaplanırken hata oluştu.</p>';
+                }
+            };
+        }
+        
+        /**
+         * YENİ: "SON VURUŞ" - Yeni Saha ROI Simülasyonunu Çalıştırır
+         */
+                /**
+         * YENİ YARDIMCI: Kurulum Maliyetini Hesaplar (ROI ve CityAnalysis panelleri için)
+         * Bu, loadCityAnalysisPanel'deki mantığın aynısıdır.
+         * !!! HATA DÜZELTMESİ: Bu fonksiyon, onu çağıran diğer fonksiyonlardan ÖNCE tanımlanmalıdır.
+         */
+        function calculateSetupCost(cityId, mineralId) {
+            const analysis = AppData.cityAnalysis?.find(c => c.city_id == cityId);
+            // Temel Kurulum Maliyetleri (Varsayımsal Milyon $)
+            // (1: Iron Ore, 2: Gold, 3: Bauxite, 4: Coal)
+            const BASE_SETUP_COSTS = { 1: 500000000, 2: 1200000000, 3: 300000000, 4: 450000000, 'default': 200000000 };
+            const RISK_MULTIPLIER = { 'Düşük': 1.0, 'Orta': 1.25, 'Yüksek': 1.6 };
+
+            let infra_multiplier = 1.5; // Altyapı çarpanı (Ne kadar yüksekse o kadar pahalı)
+            let risk_multiplier = 1.25; // Risk çarpanı
+
+            if (analysis) {
+                // Altyapı skoru YÜKSEKSE (örn: 90), çarpan DÜŞER (maliyet azalır)
+                // (1.5 - (90 / 200)) = 1.05
+                // Altyapı skoru DÜŞÜKSE (örn: 30), çarpan YÜKSELİR (maliyet artar)
+                // (1.5 - (30 / 200)) = 1.35
+                infra_multiplier = 1.5 - (parseFloat(analysis.infrastructure_score || 50) / 200);
+                risk_multiplier = RISK_MULTIPLIER[analysis.risk_level] || 1.25;
+            }
+            
+            const baseCost = BASE_SETUP_COSTS[mineralId] || BASE_SETUP_COSTS['default'];
+            const estimatedCost = baseCost * infra_multiplier * risk_multiplier;
+            
+            return estimatedCost;
+        }
+
+        /**
+         * YENİ: ROI Analizörü için Gerekli Verileri (Potansiyel Rezervler) Yükler
+         */
+        function loadROIData() {
+            console.log("ROI Analizörü için potansiyel rezervler yükleniyor...");
+            const select = document.getElementById('roi-reserve-select');
+            const summary = document.getElementById('roi-params-summary');
+            select.innerHTML = '<option value="">-- Saha ve Mineral Seçin --</option>';
+            
+            // Aktif sahaları değil, potansiyel sahaları kullan
+            const potentials = AppData.potentialReserves || [];
+            
+            // Aktif sahaların şehir ID'lerini bir sete al
+            const activeSiteCityIds = new Set((AppData.miningSites || []).map(s => s.city_id));
+            
+            // Sadece henüz aktif bir madenin olmadığı potansiyel şehirleri filtrele
+            const availablePotentials = potentials.filter(p => !activeSiteCityIds.has(p.city_id));
+
+            if (availablePotentials.length === 0) {
+                select.innerHTML = '<option value="">Uygun potansiyel rezerv bulunamadı.</option>';
+                return;
+            }
+
+            availablePotentials.forEach(pot => {
+                // Veriyi `option` içinde saklamak için JSON.stringify kullanıyoruz
+                select.innerHTML += `<option value='${JSON.stringify(pot)}'>
+                    ${pot.city_name || findCityName(pot.city_id)} - ${pot.mineral_name || findMineralName(pot.mineral_id)}
+                </option>`;
+            });
+
+            // Seçim değiştiğinde özet panelini güncelle
+            select.onchange = () => {
+                try {
+                    if (!select.value) {
+                         summary.innerHTML = '<p>Lütfen bir saha seçin...</p>';
+                         return;
+                    }
+                    const selectedData = JSON.parse(select.value);
+                    // Mineral ID'yi Piyasa Verisi anahtarına çevir (1:iron_ore, 2:gold, 3:bauxite, 4:coal)
+                    const mineralKeyMap = { 1: 'iron_ore', 2: 'gold', 3: 'bauxite', 4: 'coal' };
+                    const mineralKey = mineralKeyMap[selectedData.mineral_id] || 'default';
+                    
+                    // !!! DÜZELTME: Piyasa verisinden hem fiyatı hem de birimi al
+                    const marketCommodity = MarketData.commodities?.[mineralKey];
+                    const marketPrice = marketCommodity?.price || 0;
+                    const marketUnit = marketCommodity?.unit || (selectedData.unit_abbreviation || 'unit'); // 'oz' veya 't'
+                    
+                    if (marketPrice === 0) console.warn(`Piyasa fiyatı bulunamadı: ${mineralKey}`);
+
+                    const setupCost = calculateSetupCost(selectedData.city_id, selectedData.mineral_id);
+                    
+                    // İşletme maliyeti giriş kutusunun etiketini güncelle
+                    const opCostLabel = document.querySelector('label[for="roi-op-cost"]');
+                    if (opCostLabel) {
+                        opCostLabel.textContent = `Tahmini İşletme Maliyeti ($/${marketUnit}):`;
+                    }
+
+                    summary.innerHTML = `
+                        <p><strong>Kurulum Maliyeti (Tahmini):</strong> $${(setupCost / 1000000).toLocaleString('tr-TR', {maximumFractionDigits: 1})} Milyon</p>
+                        <p><strong>Güncel Piyasa Fiyatı (${selectedData.mineral_name}):</strong> $${marketPrice.toLocaleString('tr-TR')} / ${marketUnit}</p>
+                        <p><strong>Toplam Tahmini Rezerv:</strong> ${parseFloat(selectedData.estimated_amount).toLocaleString('tr-TR')} ${selectedData.unit_abbreviation || 'units'}</p>
+                    `;
+                } catch(e) {
+                    console.error("ROI Parametre Hatası:", e);
+                    summary.innerHTML = '<p class="text-red-500">Parametreler hesaplanırken hata oluştu.</p>';
+                }
+            };
+        }
+        
+        /**
+         * YENİ: "SON VURUŞ" - Yeni Saha ROI Simülasyonunu Çalıştırır
+         */
+        function runROISimulation() {
+            console.log("ROI Analizi (Son Vuruş) çalıştırılıyor...");
+            const resultsCard = document.getElementById('roi-results-card');
+            const decisionText = document.getElementById('roi-decision-text');
+            const decisionSubtitle = document.getElementById('roi-decision-subtitle');
+            const paybackYearsText = document.getElementById('roi-payback-years');
+            const detailsDiv = document.getElementById('roi-details');
+            
+            resultsCard.classList.add('hidden'); // Önceki sonucu gizle
+
+            try {
+                // 1. GİRDİLERİ TOPLA
+                const select = document.getElementById('roi-reserve-select');
+                if (!select.value) throw new Error("Lütfen bir potansiyel saha seçin.");
+                
+                const reserveData = JSON.parse(select.value); // { city_id, mineral_id, estimated_amount, unit_abbreviation, ... }
+                
+                const operatingCostPerUnit = parseFloat(document.getElementById('roi-op-cost').value);
+                if (isNaN(operatingCostPerUnit) || operatingCostPerUnit <= 0) {
+                    document.getElementById('roi-op-cost').focus();
+                    throw new Error("Lütfen geçerli bir 'Tahmini İşletme Maliyeti' ($/birim) girin.");
+                }
+
+                // 2. OTOMATİK VERİLERİ ÇEK
+                const mineralKeyMap = { 1: 'iron_ore', 2: 'gold', 3: 'bauxite', 4: 'coal' };
+                const mineralKey = mineralKeyMap[reserveData.mineral_id];
+                if (!mineralKey) throw new Error("Seçilen mineral için piyasa verisi anahtarı bulunamadı.");
+
+                const marketCommodity = MarketData.commodities?.[mineralKey];
+                const marketPrice = marketCommodity?.price;
+                // !!! DÜZELTME: Piyasa birimini al ('oz' veya 't')
+                const marketUnit = marketCommodity?.unit || (reserveData.unit_abbreviation || 'unit');
+
+                if (!marketPrice || marketPrice <= 0) {
+                    throw new Error(`Güncel piyasa verisi bulunamadı (${reserveData.mineral_name}). Piyasa verisi panelini kontrol edin.`);
+                }
+                
+                const setupCost = calculateSetupCost(reserveData.city_id, reserveData.mineral_id);
+                const totalReserve = parseFloat(reserveData.estimated_amount);
+                
+                // 3. HESAPLAMALARI YAP
+                
+                // Basit Varsayım: Maden ömrü 20 yıl (Rezervin %5'i yıllık üretim)
+                const ANNUAL_EXTRACTION_RATE = 0.05; // %5
+                const annualProduction = totalReserve * ANNUAL_EXTRACTION_RATE; 
+                
+                const annualRevenue = annualProduction * marketPrice;
+                const annualOperatingCost = annualProduction * operatingCostPerUnit;
+                const annualProfit = annualRevenue - annualOperatingCost;
+
+                if (annualProfit <= 0) {
+                    throw new Error(`Yıllık Kâr negatif ($${annualProfit.toLocaleString('tr-TR')}). İşletme maliyeti ($${operatingCostPerUnit}/${marketUnit}) piyasa fiyatından ($${marketPrice}/${marketUnit}) daha yüksek.`);
+                }
+
+                const paybackYears = setupCost / annualProfit;
+
+                // 4. SONUCU GÖSTER
+                resultsCard.classList.remove('hidden');
+                paybackYearsText.textContent = paybackYears.toFixed(2);
+                
+                // Karar Mekanizması
+                const GO_TARGET = 5.0; // 5 yıl ve altı = GO
+                const HOLD_TARGET = 10.0; // 5-10 yıl = HOLD
+                
+                if (paybackYears <= GO_TARGET) {
+                    decisionText.textContent = "KARAR: GO (ÖNERİLİR)";
+                    decisionText.className = "text-3xl font-extrabold text-green-600";
+                    decisionSubtitle.textContent = `Saha, ${paybackYears.toFixed(2)} yıl ile ${GO_TARGET} yıllık hedef geri dönüş süresinin altında.`;
+                } else if (paybackYears <= HOLD_TARGET) {
+                    decisionText.textContent = "KARAR: DİKKATLİ DEĞERLENDİR (NÖTR)";
+                    decisionText.className = "text-3xl font-extrabold text-yellow-600";
+                    decisionSubtitle.textContent = `Saha, ${paybackYears.toFixed(2)} yıl ile ${GO_TARGET}-${HOLD_TARGET} yıl arasında geri dönüşe sahip. Detaylı fizibilite gereklidir.`;
+                } else {
+                    decisionText.textContent = "KARAR: NO-GO (RİSKLİ)";
+                    decisionText.className = "text-3xl font-extrabold text-red-600";
+                    decisionSubtitle.textContent = `Saha, ${paybackYears.toFixed(2)} yıl ile ${HOLD_TARGET} yıllık hedef geri dönüş süresinin üzerinde.`;
+                }
+
+                // !!! DÜZELTME: Çıktıdaki birimi (ton/oz) dinamik yap
+                detailsDiv.innerHTML = `
+                    <p><strong>Kurulum Maliyeti:</strong> <span class="float-right font-medium">$${(setupCost / 1000000).toFixed(1)} Milyon</span></p>
+                    <p><strong>Yıllık Üretim (Tahmini):</strong> <span class="float-right font-medium">${annualProduction.toLocaleString('tr-TR', {maximumFractionDigits: 0})} ${marketUnit}/yıl</span></p>
+                    <p><strong>Yıllık Gelir (Piyasa Fiyatı: $${marketPrice}/${marketUnit}):</strong> <span class="float-right font-medium text-green-600">$${(annualRevenue / 1000000).toFixed(1)} Milyon</span></p>
+                    <p><strong>Yıllık İşletme Maliyeti ($${operatingCostPerUnit}/${marketUnit}):</strong> <span class="float-right font-medium text-red-600">($${(annualOperatingCost / 1000000).toFixed(1)} Milyon)</span></p>
+                    <p class="border-t pt-1 mt-1"><strong>Tahmini Yıllık Kâr:</strong> <span class="float-right font-bold text-blue-600">$${(annualProfit / 1000000).toFixed(1)} Milyon</span></p>
+                `;
+                
+                showDataStatusUpdate("GO / NO-GO Analizi başarıyla tamamlandı.");
+
+            } catch (error) {
+                console.error("ROI Simülasyonu Hatası:", error);
+                showDataStatusUpdate(`ROI Hatası: ${error.message}`, true);
+                resultsCard.classList.add('hidden'); // Hata durumunda sonuç kartını gizle
+                // Hata mesajını göstermek için bir yer ekleyebiliriz
+                 const summary = document.getElementById('roi-params-summary');
+                 summary.innerHTML = `<p class="text-red-600 font-semibold">${error.message}</p>`;
+            }
+        }
+
+
+        // =========================================================
+// EKSİK OLAN TAHMİN MODÜLLERİ (BURAYI EN ALTA EKLE)
+// =========================================================
+
+// 1. Üretim Projeksiyon Paneli (Tekil)
+function loadProductionForecastPanel() {
+    console.log("Üretim Projeksiyon Paneli yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    const sites = AppData.miningSites || [];
+
+    panelContent.innerHTML = `
+        <div class="space-y-4">
+            <h2 class="text-xl font-bold text-gray-800">Üretim Projeksiyonu</h2>
+            <p class="text-sm text-gray-600">Senaryo analizi ve gelecek üretim tahmini.</p>
+            
+            <div class="stat-card p-4">
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Maden Sahası:</label>
+                        <select id="prod-forecast-site-select" class="form-input text-sm !mb-0">
+                            <option value="">-- Saha Seçin --</option>
+                            ${sites.map(site => `<option value="${site.id}" data-capacity="${site.permitted_capacity_tons_per_day || 0}">${site.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Periyot:</label>
+                        <select id="prod-forecast-period-select" class="form-input text-sm !mb-0">
+                            <option value="6">Gelecek 6 Ay</option>
+                            <option value="12" selected>Gelecek 1 Yıl</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Verimlilik Değişimi (%):</label>
+                        <input type="number" step="0.1" id="prod-sim-efficiency-change" class="form-input !mb-0" placeholder="Örn: 5 veya -5">
+                    </div>
+                </div>
+                <button onclick="runProductionProjection()" class="modal-button modal-button-submit w-full mt-4">Projeksiyonu Çalıştır</button>
+            </div>
+
+            <div class="chart-container-large bg-white p-4 rounded shadow border">
+                <canvas id="productionForecastChart"></canvas>
+                <p id="production-forecast-nodata" class="text-center text-gray-500 py-10 hidden">Veri bekleniyor...</p>
+            </div>
+            <div id="production-forecast-summary" class="text-sm text-gray-600 mt-2"></div>
+        </div>
+    `;
+}
+
+// 2. Ekipman Bakım Tahmini Paneli (Tekil)
+function loadMaintenanceForecastPanel() {
+    console.log("Bakım Tahmini Paneli yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+
+    panelContent.innerHTML = `
+        <div class="space-y-4">
+            <h2 class="text-xl font-bold text-gray-800">Ekipman Bakım & Risk</h2>
+            
+            <div class="stat-card p-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tahmin Periyodu:</label>
+                <select id="maint-forecast-period-select" onchange="displayMaintenanceForecast()" class="form-input text-sm w-full">
+                    <option value="6">Gelecek 6 Ay</option>
+                    <option value="12" selected>Gelecek 1 Yıl</option>
+                </select>
+            </div>
+
+            <div class="stat-card p-4">
+                <h4 class="font-semibold text-gray-700 mb-2">Yaklaşan Planlı Bakımlar</h4>
+                <ul id="upcoming-maintenance-list" class="divide-y divide-gray-200 max-h-60 overflow-y-auto custom-scrollbar">
+                    <li class="py-4 text-center text-gray-500">Yükleniyor...</li>
+                </ul>
+            </div>
+
+            <div class="stat-card p-4">
+                <h4 class="font-semibold text-gray-700 mb-2 text-red-600">Potansiyel Arıza Riski</h4>
+                <ul id="failure-risk-list" class="divide-y divide-gray-200 max-h-60 overflow-y-auto custom-scrollbar">
+                    <li class="py-4 text-center text-gray-500">Hesaplanıyor...</li>
+                </ul>
+            </div>
+        </div>
+    `;
+    setTimeout(displayMaintenanceForecast, 100);
+}
+
+// 3. Operasyonel Maliyet Simülasyonu Paneli (Tekil)
+function loadCostSimulationPanel() {
+    console.log("Maliyet Simülasyonu Paneli yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+
+    panelContent.innerHTML = `
+        <div class="space-y-4">
+            <h2 class="text-xl font-bold text-gray-800">Maliyet Simülasyonu (Monte Carlo)</h2>
+            <p class="text-sm text-gray-600">1000 farklı senaryo ile bütçe risk analizi.</p>
+
+            <div class="stat-card p-4 bg-slate-50 border border-slate-200">
+                <h4 class="text-sm font-medium text-gray-600 mb-2">Geçmiş Veri Analizi</h4>
+                <div id="cost-analysis-summary" class="text-sm text-gray-700">Hesaplanıyor...</div>
+            </div>
+
+            <button onclick="runCostSimulation()" class="modal-button modal-button-submit w-full py-3">Simülasyonu Çalıştır</button>
+
+            <div class="stat-card p-4">
+                <h4 class="font-semibold text-gray-700 mb-2">Sonuçlar</h4>
+                <ul id="cost-simulation-summary" class="divide-y divide-gray-200 mb-4 text-sm">
+                    <li class="py-2 text-center text-gray-500">Bekleniyor...</li>
+                </ul>
+                <div class="chart-container-large">
+                    <canvas id="costSimulationChart"></canvas>
+                    <p id="cost-simulation-nodata" class="text-center text-gray-500 py-10 hidden">Veri yok.</p>
+                </div>
+            </div>
+        </div>
+    `;
+    setTimeout(displayCostAnalysis, 100);
+}
+
+// 4. Risk Etki Simülasyonu Paneli (Tekil)
+function loadRiskImpactPanel() {
+    console.log("Risk Etki Paneli yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+
+    panelContent.innerHTML = `
+        <div class="space-y-4">
+            <h2 class="text-xl font-bold text-gray-800">Stres Testi (Risk Analizi)</h2>
+            <p class="text-sm text-gray-600">Aktif risklerin bütçeye olası etkisi.</p>
+
+            <div class="stat-card p-4">
+                <h4 class="font-semibold text-gray-700 mb-2">Dahil Edilecek Riskler:</h4>
+                <div id="risk-selection-list" class="max-h-60 overflow-y-auto custom-scrollbar border rounded p-2 space-y-2">
+                    <p class="text-center text-gray-500 py-3">Yükleniyor...</p>
+                </div>
+            </div>
+
+            <button onclick="runRiskImpactSimulation()" class="modal-button modal-button-submit w-full mt-2 bg-orange-600 hover:bg-orange-700 py-3">Stres Testi Çalıştır</button>
+
+            <div class="stat-card p-4 mt-4">
+                <h4 class="font-semibold text-gray-700 mb-2">Sonuçlar</h4>
+                <ul id="risk-impact-summary" class="divide-y divide-gray-200 text-sm">
+                    <li class="py-2 text-center text-gray-500">Bekleniyor...</li>
+                </ul>
+            </div>
+        </div>
+    `;
+    setTimeout(loadRiskSimulationData, 100);
+}
+
+// 5. ROI Analiz Paneli (Tekil)
+function loadROIPanel() {
+    console.log("ROI Paneli yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+
+    panelContent.innerHTML = `
+        <div class="space-y-4">
+            <h2 class="text-xl font-bold text-gray-800">Yeni Saha ROI Analizi</h2>
+            <p class="text-sm text-gray-600">Yatırım Geri Dönüş Süresi (Go / No-Go)</p>
+
+            <div class="stat-card p-4">
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Potansiyel Saha:</label>
+                        <select id="roi-reserve-select" class="form-input text-sm !mb-0">
+                            <option value="">Yükleniyor...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">İşletme Maliyeti ($/ton):</label>
+                        <input type="number" step="1" id="roi-op-cost" class="form-input text-sm !mb-0" placeholder="örn: 50">
+                    </div>
+                </div>
+                <div class="mt-4 p-3 bg-slate-50 border border-slate-200 rounded">
+                    <div id="roi-params-summary" class="text-xs text-gray-500 space-y-1"><p>Saha seçimi bekleniyor...</p></div>
+                </div>
+                <button onclick="runROISimulation()" class="modal-button modal-button-submit w-full mt-4 bg-indigo-600 hover:bg-indigo-700 py-3 font-bold">ANALİZİ BAŞLAT</button>
+            </div>
+
+            <div id="roi-results-card" class="stat-card p-6 text-center hidden mt-4 border-2 border-indigo-100">
+                <h3 id="roi-decision-text" class="text-3xl font-extrabold text-gray-800">---</h3>
+                <p id="roi-decision-subtitle" class="text-sm text-gray-500 mb-4">---</p>
+                <h4 class="text-5xl font-extrabold text-indigo-600"><span id="roi-payback-years">0.0</span> Yıl</h4>
+                <div id="roi-details" class="text-sm text-left border-t pt-3 mt-4 space-y-1"></div>
+            </div>
+        </div>
+    `;
+    setTimeout(loadROIData, 100);
+}
+
+// 6. GENEL TAHMİN AKORDİYON PANELİ (ANA DASHBOARD)
+function loadForecastPanel() {
+    console.log("loadForecastPanel (Genel Akordiyon) yükleniyor...");
+    destroyAllCharts();
+    const panelContent = document.getElementById('panel-content');
+    if (!panelContent) return;
+
+    const sites = AppData.miningSites || []; 
+    const veriTarihi = (typeof zenginlestirilmisVeriTarihi !== 'undefined') ? zenginlestirilmisVeriTarihi : 'Güncel';
+
+    panelContent.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Operasyonel Tahminler Merkezi</h2>
+        <p class="text-sm text-gray-600 mb-4">Veri Kaynağı: <code>coal.sql</code> (${veriTarihi}).</p>
+
+        <div id="simulation-accordion" class="space-y-2">
+            <div class="stat-card overflow-hidden">
+                <button class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-700 bg-slate-50 hover:bg-slate-100">
+                    <span>1. Üretim Projeksiyonu</span>
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div class="accordion-content p-4 border-t border-gray-200 hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div><label class="block text-sm">Saha:</label><select id="prod-forecast-site-select" class="form-input text-sm !mb-0"><option value="">-- Seçin --</option>${sites.map(s => `<option value="${s.id}" data-capacity="${s.permitted_capacity_tons_per_day}">${s.name}</option>`).join('')}</select></div>
+                        <div><label class="block text-sm">Periyot:</label><select id="prod-forecast-period-select" class="form-input text-sm !mb-0"><option value="6">6 Ay</option><option value="12" selected>1 Yıl</option></select></div>
+                    </div>
+                    <div><label class="block text-xs">Verimlilik (%):</label><input type="number" id="prod-sim-efficiency-change" class="form-input !mb-0" placeholder="0"></div>
+                    <button onclick="runProductionProjection()" class="modal-button modal-button-submit w-full mt-2">Çalıştır</button>
+                    <div class="chart-container-large mt-4"><canvas id="productionForecastChart"></canvas><p id="production-forecast-nodata" class="hidden text-center py-10">Grafik bekleniyor...</p></div>
+                    <div id="production-forecast-summary" class="text-sm mt-2"></div>
+                </div>
+            </div>
+
+            <div class="stat-card overflow-hidden">
+                <button class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-700 bg-slate-50 hover:bg-slate-100">
+                    <span>2. Bakım Tahmini</span>
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div class="accordion-content p-4 border-t border-gray-200 hidden space-y-4">
+                     <select id="maint-forecast-period-select" onchange="displayMaintenanceForecast()" class="form-input text-sm w-full"><option value="6">6 Ay</option><option value="12" selected>1 Yıl</option></select>
+                     <div class="mt-2"><h4 class="font-semibold">Planlı Bakımlar</h4><ul id="upcoming-maintenance-list" class="max-h-40 overflow-y-auto"><li>Yükleniyor...</li></ul></div>
+                     <div class="mt-2"><h4 class="font-semibold text-red-600">Arıza Riski</h4><ul id="failure-risk-list" class="max-h-40 overflow-y-auto"><li>Hesaplanıyor...</li></ul></div>
+                </div>
+            </div>
+
+            <div class="stat-card overflow-hidden">
+                <button class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-700 bg-slate-50 hover:bg-slate-100">
+                    <span>3. Maliyet Simülasyonu</span>
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div class="accordion-content p-4 border-t border-gray-200 hidden space-y-4">
+                     <div id="cost-analysis-summary" class="text-sm mb-2">Hesaplanıyor...</div>
+                     <button onclick="runCostSimulation()" class="modal-button modal-button-submit w-full">Çalıştır</button>
+                     <div class="mt-4"><ul id="cost-simulation-summary" class="text-sm mb-2"></ul><div class="chart-container-large"><canvas id="costSimulationChart"></canvas><p id="cost-simulation-nodata" class="hidden text-center py-10">Veri yok.</p></div></div>
+                </div>
+            </div>
+
+            <div class="stat-card overflow-hidden">
+                 <button class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-700 bg-slate-50 hover:bg-slate-100">
+                     <span>4. Stres Testi (Risk)</span>
+                     <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                 </button>
+                 <div class="accordion-content p-4 border-t border-gray-200 hidden space-y-4">
+                    <div id="risk-selection-list" class="max-h-40 overflow-y-auto border p-2 mb-2"><p class="text-center">Yükleniyor...</p></div>
+                    <button onclick="runRiskImpactSimulation()" class="modal-button modal-button-submit w-full bg-orange-600">Stres Testi Yap</button>
+                    <div class="mt-4"><ul id="risk-impact-summary" class="text-sm"></ul></div>
+                 </div>
+            </div>
+
+            
+            <div class="stat-card overflow-hidden">
+                 <button class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-700 bg-slate-50 hover:bg-slate-100">
+                     <span>5. ROI Analizi</span>
+                     <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                 </button>
+                 <div class="accordion-content p-4 border-t border-gray-200 hidden space-y-4">
+                     <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-sm">Saha:</label><select id="roi-reserve-select" class="form-input text-sm !mb-0"><option value="">Yükleniyor...</option></select></div>
+                        <div><label class="text-sm">Maliyet:</label><input type="number" id="roi-op-cost" class="form-input text-sm !mb-0" placeholder="50"></div>
+                     </div>
+                     <div id="roi-params-summary" class="text-xs text-gray-500 my-2">Saha bekleniyor...</div>
+                     <button onclick="runROISimulation()" class="modal-button modal-button-submit w-full bg-indigo-600">Analiz Et</button>
+                     
+                     <div id="roi-results-card" class="hidden mt-4 text-center border p-4">
+                        <h3 id="roi-decision-text" class="text-2xl font-bold">---</h3>
+                        
+                        <p id="roi-decision-subtitle" class="text-sm text-gray-500 mb-4">---</p> 
+                        <h4 class="text-4xl font-bold text-indigo-600"><span id="roi-payback-years">0.0</span> Yıl</h4>
+                        <div id="roi-details" class="text-sm text-left mt-2 border-t pt-2"></div>
+                     </div>
+                     </div>
+            </div>
+        </div>
+    `;
+
+    // Akordiyon JS
+    document.querySelectorAll('.accordion-header').forEach(button => {
+        button.addEventListener('click', () => {
+            const content = button.nextElementSibling;
+            const isActive = !content.classList.contains('hidden');
+            document.querySelectorAll('.accordion-content').forEach(c => c.classList.add('hidden'));
+            document.querySelectorAll('.accordion-header').forEach(h => { h.classList.remove('active'); h.querySelector('svg').classList.remove('rotate-180'); });
+
+            if (!isActive) {
+                content.classList.remove('hidden');
+                button.classList.add('active');
+                button.querySelector('svg').classList.add('rotate-180');
+                const parentDiv = button.closest('.stat-card');
+                if (parentDiv.contains(document.getElementById('upcoming-maintenance-list'))) displayMaintenanceForecast();
+                else if (parentDiv.contains(document.getElementById('cost-analysis-summary'))) displayCostAnalysis();
+                else if (parentDiv.contains(document.getElementById('risk-selection-list'))) loadRiskSimulationData();
+                else if (parentDiv.contains(document.getElementById('roi-reserve-select'))) loadROIData();
+            }
+        });
+    });
+}
+
+
+
+
+</script>
+</body>
+</html>
+
+

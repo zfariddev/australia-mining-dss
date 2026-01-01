@@ -1,0 +1,15 @@
+{
+  "name": "geo-map-server",
+  "version": "1.0.0",
+  "description": "MySQL veritabanından coğrafi verileri sunan API sunucusu.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "mysql2": "^3.8.0" 
+  }
+}
