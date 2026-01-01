@@ -2,6 +2,9 @@
 
 Bu proje, Avustralya madencilik operasyonları için geliştirilmiş web tabanlı bir **Karar Destek Sistemidir (DSS)**. Lojistik, üretim takibi, maliyet simülasyonları ve ROI analizlerini tek bir panelde birleştirir.
 
+Bu proje, karmaşık madencilik operasyonlarını veri odaklı stratejilere dönüştüren yeni nesil bir Karar Destek Sistemidir (KDS). Geleneksel yönetim panellerinin ötesine geçerek; yöneticilerin Monte Carlo algoritmalarıyla belirsizlik altındaki riskleri simüle etmelerine, ROI Analizörü ile milyar dolarlık yatırım kararlarını test etmelerine ve AI Destekli Asistan ile sistem içinde doğal dille (NLP) geznmelerine olanak tanır. Lojistikten iş güvenliğine, üretimden finansal tahminlemeye kadar tüm süreçleri tek bir coğrafi dashboard üzerinde birleştirir.
+
+
 ![Status](https://img.shields.io/badge/Status-Completed-success)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
