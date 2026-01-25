@@ -104,3 +104,24 @@ Projeyi yerel makinenizde çalıştırmak için:
 
 ---
 **Lisans:** Bu proje MIT Lisansı ile lisanslanmıştır. Eğitim amaçlı geliştirilmiştir.
+
+
+
+# Sistemi yazılabilir yap (image_6f69af.png'de Yes dediysen çalışır)
+mount -o remount,rw /system
+
+# Kimlik Bilgilerini Samsung S9 (SM-G960F) Olarak Güncelle
+sed -i 's/ro.product.brand=.*/ro.product.brand=samsung/g' /system/build.prop
+sed -i 's/ro.product.manufacturer=.*/ro.product.manufacturer=samsung/g' /system/build.prop
+sed -i 's/ro.product.model=.*/ro.product.model=SM-G960F/g' /system/build.prop
+sed -i 's/ro.product.name=.*/ro.product.name=starltexx/g' /system/build.prop
+sed -i 's/ro.product.device=.*/ro.product.device=starlte/g' /system/build.prop
+
+# Sanal Makine İzlerini Silecek O Kritik İmza (Fingerprint)
+sed -i 's/ro.build.fingerprint=.*/ro.build.fingerprint=samsung\/starltexx\/starlte:9\/PPR1.180610.011\/G960FXXU2CRLI:user\/release-keys/g' /system/build.prop
+
+# DNS Sızıntısını Önlemek İçin Whonix'e Zorla
+setprop net.dns1 10.152.152.10
+
+# Değişiklikleri Kaydet ve Yeniden Başlat
+reboot
